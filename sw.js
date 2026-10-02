@@ -4,7 +4,7 @@
 //  - AI 대화(/api, Gemini)는 항상 인터넷이 필요해서 저장하지 않아요.
 //  - 앱을 수정했는데 휴대폰에 안 바뀌면 아래 VERSION 숫자를 올려주세요.
 // =====================================================================
-const VERSION = "opic-v7";
+const VERSION = "opic-v8";
 const SHELL = ["/", "/manifest.json", "/script-parser.js", "/default-script.txt", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {
