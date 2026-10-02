@@ -102,6 +102,16 @@
       padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
     }
     .bar .inner { max-width: 720px; margin: 0 auto; display: flex; gap: 8px; }
+    .bar .talkRow { max-width: 720px; margin: 0 auto 8px; display: none; }
+    .bar .talkRow.show { display: block; }
+    .bar button.talk {
+      width: 100%; padding: 16px; font-size: 18px; font-weight: 800; border-radius: 14px;
+      background: var(--accent); color: #fff; border-color: var(--accent);
+      touch-action: manipulation; user-select: none; -webkit-user-select: none;
+    }
+    .bar button.talk.rec { background: var(--danger); border-color: var(--danger); animation: recPulse 1.2s infinite; }
+    .bar button.talk:disabled { opacity: .45; }
+    @keyframes recPulse { 50% { box-shadow: 0 0 0 6px rgba(214,69,69,.25); } }
     .bar button {
       flex: 1; padding: 12px 6px; border-radius: 10px; border: 1px solid var(--line);
       background: #fff; font-size: 14px; font-weight: 600; cursor: pointer; color: var(--ink);
@@ -207,6 +217,15 @@
     </div>
 
     <div class="card">
+      <h2>답변 방식</h2>
+      <div class="row" id="turnChips">
+        <span class="chip on" data-v="ptt">🎙 말하기 버튼 (추천)</span>
+        <span class="chip" data-v="auto">자동 감지</span>
+      </div>
+      <div class="hint" id="turnHint"></div>
+    </div>
+
+    <div class="card">
       <h2>목소리</h2>
       <div class="row" id="voiceChips">
         <span class="chip on" data-v="Kore">Kore</span>
@@ -252,6 +271,9 @@
 </div>
 
 <div class="bar" id="bar">
+  <div class="talkRow" id="talkRow">
+    <button id="talkBtn" class="talk">🎙 말하기</button>
+  </div>
   <div class="inner">
     <button id="repeatBtn">🔁 다시 들려줘</button>
     <button id="nextBtn">⏭ 다음 질문</button>
@@ -280,10 +302,22 @@ function singleSelect(groupId) {
 singleSelect("modeChips");
 singleSelect("levelChips");
 singleSelect("voiceChips");
+
 $("topicChips").addEventListener("click", (e) => {
   if (e.target.classList.contains("chip")) e.target.classList.toggle("on");
 });
 const picked = (groupId) => [...$(groupId).querySelectorAll(".chip.on")].map((c) => c.dataset.v);
+
+// ---- 답변 방식 (말하기 버튼 / 자동 감지) ----
+singleSelect("turnChips");
+const TURN_HINT = {
+  ptt: "‘말하기’를 누르면 녹음이 시작되고, 다 말한 뒤 ‘보내기’를 누르면 그때 상대가 대답해요. 중간에 오래 생각해도 끊기지 않아요.",
+  auto: "말을 멈추면 AI가 자동으로 알아채고 대답해요. 2초 넘게 멈추면 말이 끊길 수 있어요.",
+};
+function updateTurnHint() { $("turnHint").textContent = TURN_HINT[picked("turnChips")[0]]; }
+$("turnChips").addEventListener("click", updateTurnHint);
+try { const t = localStorage.getItem("opic_turn"); if (t) $("turnChips").querySelectorAll(".chip").forEach((c) => c.classList.toggle("on", c.dataset.v === t)); } catch {}
+updateTurnHint();
 
 try { $("pw").value = localStorage.getItem("opic_pw") || ""; } catch {}
 
@@ -604,15 +638,15 @@ async function startMic() {
   src.connect(micNode);
 
   const ratio = micCtx.sampleRate / 16000;
-  let pending = [];
-  let pendingLen = 0;
   micNode.port.onmessage = (e) => {
     if (!ready || ended) return;
+    const ptt = settings.turnMode === "ptt";
+    if (ptt && !recording) return;             // 말하기 버튼 방식: 녹음 중일 때만 보내기
     const input = e.data;
     // 16kHz로 줄이기 (구간 평균)
     const outLen = Math.floor(input.length / ratio);
     const out = new Int16Array(outLen);
-    const mute = aiIsSpeaking();
+    const mute = !ptt && aiIsSpeaking();     // 자동 감지 방식: AI가 말할 땐 무음으로 (메아리 방지)
     for (let i = 0; i < outLen; i++) {
       const start = Math.floor(i * ratio), end = Math.floor((i + 1) * ratio);
       let sum = 0;
@@ -623,25 +657,77 @@ async function startMic() {
     pending.push(out);
     pendingLen += outLen;
     // 약 0.1초(1600샘플)씩 모아서 보내기
-    if (pendingLen >= 1600) {
-      const all = new Int16Array(pendingLen);
-      let off = 0;
-      pending.forEach((p) => { all.set(p, off); off += p.length; });
-      pending = []; pendingLen = 0;
-      const bytes = new Uint8Array(all.buffer);
-      let bin = "";
-      for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-      send({ realtimeInput: { audio: { data: btoa(bin), mimeType: "audio/pcm;rate=16000" } } });
-    }
+    if (pendingLen >= 1600) flushAudio();
   };
 }
+
+// 모아둔 마이크 소리 보내기
+let pending = [];
+let pendingLen = 0;
+function flushAudio() {
+  if (!pendingLen) return;
+  const all = new Int16Array(pendingLen);
+  let off = 0;
+  pending.forEach((p) => { all.set(p, off); off += p.length; });
+  pending = []; pendingLen = 0;
+  const bytes = new Uint8Array(all.buffer);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  send({ realtimeInput: { audio: { data: btoa(bin), mimeType: "audio/pcm;rate=16000" } } });
+}
+
+// =====================================================================
+//  🎙 말하기 / 📤 보내기 버튼 (말하기 버튼 방식)
+//  - 말하기: 녹음 시작 (AI가 말하던 중이면 멈춤)
+//  - 보내기: 녹음 끝 → 이때 AI가 대답해요. 중간에 오래 생각해도 끊기지 않아요.
+// =====================================================================
+let recording = false;
+let pttBubble = null;    // 말하기 버튼으로 보낸 답변 말풍선 (글자 변환이 늦게 와도 제자리에 채우기)
+function startRecording() {
+  if (!ready || ended || recording) return;
+  stopPlayback();                               // AI 말 멈추기
+  pending = []; pendingLen = 0;
+  recording = true;
+  send({ realtimeInput: { activityStart: {} } });
+  curUser = null;                               // 새 답변 말풍선
+  pttBubble = null;
+  userSpeaking = true;
+  startAnswerTimer();
+  $("talkBtn").textContent = "📤 보내기";
+  $("talkBtn").classList.add("rec");
+  setStatus("녹음 중… 다 말하면 ‘보내기’를 누르세요", "talk");
+}
+function stopRecording() {
+  if (!recording) return;
+  recording = false;
+  flushAudio();
+  send({ realtimeInput: { activityEnd: {} } });
+  // 대답보다 먼저 내 말풍선 자리를 만들어 두기 (순서가 섞이지 않게)
+  pttBubble = curUser || newBubble("user");
+  if (!pttBubble.text) pttBubble.el.querySelector(".t").textContent = "(내 말을 글자로 바꾸는 중…)";
+  curUser = null;
+  userSpeaking = false;
+  stopAnswerTimer();
+  $("talkBtn").textContent = "🎙 말하기";
+  $("talkBtn").classList.remove("rec");
+  setStatus("보냈어요. 대답을 기다리는 중…", "ai");
+}
+$("talkBtn").onclick = () => (recording ? stopRecording() : startRecording());
 
 function send(obj) {
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
 }
 // 버튼 지시를 면접관에게 전달 (글자로)
 function appSignal(text) {
-  send({ realtimeInput: { text: "[APP] " + text } });
+  if (settings.turnMode === "ptt") {
+    // 말하기 버튼 방식에서는 "말 시작/끝" 신호로 감싸야 AI가 대답해요
+    if (recording) { recording = false; $("talkBtn").textContent = "🎙 말하기"; $("talkBtn").classList.remove("rec"); stopAnswerTimer(); }
+    send({ realtimeInput: { activityStart: {} } });
+    send({ realtimeInput: { text: "[APP] " + text } });
+    send({ realtimeInput: { activityEnd: {} } });
+  } else {
+    send({ realtimeInput: { text: "[APP] " + text } });
+  }
 }
 
 // ---- Gemini에서 오는 메시지 처리 ----
@@ -664,8 +750,10 @@ function onMessage(ev) {
   const sc = msg.serverContent;
   if (sc) {
     // 면접관 목소리
+    // 말하기 버튼으로 녹음 중이면 이전 대답의 남은 소리는 버리기
+    const dropAudio = settings.turnMode === "ptt" && recording;
     for (const p of sc.modelTurn?.parts || []) {
-      if (p.inlineData?.data && (p.inlineData.mimeType || "").startsWith("audio")) {
+      if (!dropAudio && p.inlineData?.data && (p.inlineData.mimeType || "").startsWith("audio")) {
         playPcm(p.inlineData.data);
         setStatus((settings.mode === "gina" ? "지나" : "Ava") + "가 말하는 중…", "ai");
         if (userSpeaking) { userSpeaking = false; stopAnswerTimer(); }
@@ -673,11 +761,14 @@ function onMessage(ev) {
     }
     // 내 말 → 글자
     if (sc.inputTranscription?.text) {
+      if (settings.turnMode === "ptt" && !recording && pttBubble) curUser = pttBubble;
       if (!curUser) {
         curUser = newBubble("user", curAI ? curAI.el : null); // 면접관 말보다 앞에 오도록
-        userSpeaking = true;
-        startAnswerTimer();
-        setStatus("듣고 있어요… 편하게 말하세요", "talk");
+        if (settings.turnMode !== "ptt") {          // 자동 감지 방식에서만 (말하기 버튼 방식은 버튼이 처리)
+          userSpeaking = true;
+          startAnswerTimer();
+          setStatus("듣고 있어요… 편하게 말하세요", "talk");
+        }
       }
       appendText(curUser, sc.inputTranscription.text);
     }
@@ -694,7 +785,10 @@ function onMessage(ev) {
       curAI = null;
       curUser = null;
       const wait = Math.max(0, (nextPlayTime - (outCtx?.currentTime || 0)) * 1000);
-      setTimeout(() => { if (!ended && !aiIsSpeaking()) setStatus("내 차례예요. 말씀하세요 🎤", "live"); }, wait + 300);
+      setTimeout(() => {
+        if (ended || aiIsSpeaking() || recording) return;
+        setStatus(settings.turnMode === "ptt" ? "내 차례예요. ‘말하기’를 누르고 답변하세요 🎤" : "내 차례예요. 말씀하세요 🎤", "live");
+      }, wait + 300);
     }
   }
 
@@ -767,11 +861,13 @@ $("startBtn").onclick = async () => {
     mode,
     level: picked("levelChips")[0],
     voice: picked("voiceChips")[0],
+    turnMode: picked("turnChips")[0],
     topics,
     password: $("pw").value,
   };
   try {
     store.set("opic_pw", settings.password);
+    store.set("opic_turn", settings.turnMode);
 
     // 1) 마이크 먼저 허락받기
     await startMic();
@@ -822,6 +918,7 @@ $("startBtn").onclick = async () => {
     }
     rememberRecent(pendingRecent);
     $("nextBtn").textContent = mode === "gina" ? "⏭ 다음 단계" : "⏭ 다음 질문";
+    $("talkRow").classList.toggle("show", settings.turnMode === "ptt");
     $("bar").style.display = "block";
   } catch (err) {
     console.error(err);

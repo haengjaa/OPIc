@@ -28,6 +28,7 @@ module.exports = async function handler(req, res) {
   const voice = ["Kore", "Puck", "Aoede", "Charon"].includes(body.voice) ? body.voice : "Kore";
   const script = String(body.script || "").slice(0, 7000);
   const model = process.env.LIVE_MODEL || "gemini-3.8-live";
+  const pushToTalk = body.turnMode !== "auto"; // 기본: 말하기 버튼 방식
 
   let instructions;
   if (mode === "gina") {
@@ -59,11 +60,11 @@ module.exports = async function handler(req, res) {
       inputAudioTranscription: {},  // 내 말 → 글자
       outputAudioTranscription: {}, // AI 말 → 글자
       realtimeInputConfig: {
-        automaticActivityDetection: {
-          // 생각하느라 잠깐 멈춰도 바로 끊지 않도록 "둔감하게" + 2초 기다림
-          endOfSpeechSensitivity: "END_SENSITIVITY_LOW",
-          silenceDurationMs: 2000,
-        },
+        automaticActivityDetection: pushToTalk
+          // 말하기 버튼 방식: 자동 감지를 끄고, 앱이 "말 시작/끝"을 직접 알려줘요
+          ? { disabled: true }
+          // 자동 감지 방식: 생각하느라 잠깐 멈춰도 바로 끊지 않도록 "둔감하게" + 2초 기다림
+          : { endOfSpeechSensitivity: "END_SENSITIVITY_LOW", silenceDurationMs: 2000 },
       },
     },
   };
