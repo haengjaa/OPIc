@@ -22,11 +22,21 @@ function cleanMission(m) {
   while (dialogue.length && dialogue[0].speaker !== "Teacher") dialogue.shift();
   while (dialogue.length && dialogue[dialogue.length - 1].speaker !== "User") dialogue.pop();
 
+  // 시연할 때 말 앞에 붙이는 짧은 이름 (예: Sam / Customer)
+  const oneWord = (v) => String(v || "").replace(/[^A-Za-z' -]/g, " ").trim().split(/\s+/)[0] || "";
+  const nameInParens = (String(m.gina_role || "").match(/\(([^)]+)\)/) || [])[1];
+  let ginaLabel = oneWord(m.gina_label) || oneWord(nameInParens) || oneWord(m.gina_role) || "Partner";
+  let userLabel = oneWord(m.user_label);
+  if (!userLabel || /^(you|me|i)$/i.test(userLabel)) userLabel = "Learner";
+  if (userLabel.toLowerCase() === ginaLabel.toLowerCase()) userLabel = "Learner";
+
   return {
     title_ko: str(m.title_ko, 120),
     scenario_ko: str(m.scenario_ko, 600),
     gina_role: str(m.gina_role, 80),
     user_role: str(m.user_role, 80),
+    gina_label: ginaLabel.slice(0, 20),
+    user_label: userLabel.slice(0, 20),
     expressions: pairs(m.expressions, 5),
     dialogue,
     tip_ko: str(m.tip_ko, 400),

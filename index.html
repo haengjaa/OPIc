@@ -89,6 +89,13 @@
     .msg.ai { background: var(--ai); align-self: flex-start; border-top-left-radius: 4px; }
     .msg.me { background: var(--me); color: #fff; align-self: flex-end; border-top-right-radius: 4px; }
     .msg .who { display: block; font-size: 11px; opacity: .7; margin-bottom: 2px; }
+    /* 지나 시연: 한 사람 대사마다 한 줄씩 */
+    .msg .line { display: block; margin-top: 6px; padding-left: 2px; }
+    .msg .line:first-child { margin-top: 0; }
+    .msg .line .spk { font-size: 12px; font-weight: 700; color: var(--accent); margin-right: 6px; }
+    .msg .line.u .spk { color: var(--ok); }
+    .msg .say { display: block; margin-top: 6px; }
+    .msg .say:first-child { margin-top: 0; }
     .bar {
       position: fixed; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,.96);
       border-top: 1px solid var(--line); display: none;
@@ -427,9 +434,100 @@ function newBubble(role, beforeEl) {
   }
   return entry;
 }
+// ---- 대화 형식 줄바꿈 ----
+// AI가 대화를 시연할 때 "Teacher: … User: …" 또는 "Sam: … Caller: …" 처럼 말하면
+// 말하는 사람이 바뀔 때마다 새 줄로 나눠서, 미션 카드의 대화 예시처럼 보여줘요.
+const reEsc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const MARK = "\u0001";
+const TEACHER_WORDS = ["teacher", "gina", "지나", "tutor", "interviewer", "ava"];
+const USER_WORDS = ["user", "learner", "student", "candidate", "me", "you", "나"];
+const NOT_SPEAKER = ["tip", "note", "example", "step", "mission", "scenario", "answer", "question", "key", "hint"];
+
+function formatAIText(raw) {
+  let t = String(raw || "").replace(/\s+/g, " ").trim();
+  const m = sessionMission;
+  const gina = settings.mode === "gina";
+
+  // 이 대화에서 "지나 쪽 / 내 쪽" 이름 목록
+  const teacherSet = new Set(TEACHER_WORDS);
+  const userSet = new Set(USER_WORDS);
+  if (m) {
+    if (m.gina_label) teacherSet.add(m.gina_label.toLowerCase());
+    if (m.user_label) userSet.add(m.user_label.toLowerCase());
+    String(m.gina_role || "").toLowerCase().split(/[^a-z]+/).filter((w) => w.length > 1).forEach((w) => teacherSet.add(w));
+  }
+  const keyOf = (name) => name.toLowerCase().replace(/\([^)]*\)/g, " ").trim();
+  const sideOf = (name) => {
+    // "Gina (Customer)" 처럼 괄호가 있으면 괄호 안 역할로 판단
+    const inner = (name.match(/\(([^)]*)\)/) || [])[1];
+    const words = (inner ? inner.toLowerCase() : keyOf(name)).split(/\s+/);
+    if (inner && !words.some((w) => userSet.has(w) || teacherSet.has(w))) return "";
+    if (words.some((w) => userSet.has(w))) return "u";
+    if (words.some((w) => teacherSet.has(w))) return "t";
+    return "";
+  };
+
+  // ① "이름:" 형식 찾기 (Teacher:, User:, Sam:, Gina (Waiter):, 지나: …)
+  const LABEL = `([A-Z][A-Za-z']{0,14}(?: [A-Z][A-Za-z']{0,14})?(?: ?\\([^)]{1,20}\\))?|지나)`;
+  const labelRe = new RegExp(`(^|[\\s"'“”‘’.!?…])${LABEL}\\s*[:：]\\s*`, "g");
+  const hits = [...t.matchAll(labelRe)].filter((h) => !NOT_SPEAKER.includes(keyOf(h[2]).split(/\s+/)[0]));
+  const known = hits.filter((h) => sideOf(h[2]));
+  // 이름이 2번 이상 나오거나(대화), 알려진 역할 이름이면 줄바꿈 적용
+  if (hits.length >= 2 || known.length >= 1) {
+    t = t.replace(labelRe, (all, pre, name) =>
+      NOT_SPEAKER.includes(keyOf(name).split(/\s+/)[0]) ? all : `${pre}${MARK}${name}${MARK}`);
+  }
+
+  if (gina && m) {
+    // ② 쌍점이 빠져도, 문장이 끝난 직후에 역할 이름이 나오면 새 줄 (예: "… tonight? Caller. I'm …")
+    const L2 = [m.gina_label, m.user_label, "Teacher", "User"].filter(Boolean).map(reEsc).join("|");
+    t = t.replace(new RegExp(`(^|[.!?…]["”']?\\s+)(${L2})[,.]?\\s+(?=["“A-Z])`, "g"),
+      (all, pre, name) => `${pre}${MARK}${name}${MARK}`);
+    // ③ 그래도 못 찾으면: 미션 카드 대화 예시의 첫 단어들로 줄 나누기
+    if (!t.includes(MARK) && Array.isArray(m.dialogue) && m.dialogue.length >= 2) {
+      for (const d of m.dialogue) {
+        const words = d.en.replace(/[^A-Za-z' ]/g, " ").trim().split(/\s+/).slice(0, 4);
+        if (words.length < 3) continue;
+        const re = new RegExp(`(^|[.!?…]["”']?\\s*)(["“]?${words.map(reEsc).join("[^A-Za-z]+")})`, "i");
+        const name = d.speaker === "User" ? "User" : "Teacher";
+        if (re.test(t)) t = t.replace(re, (all, pre, w) => `${pre}${MARK}${name}${MARK}${w}`);
+      }
+    }
+  }
+  if (!t.includes(MARK)) return esc(t);
+
+  // 조각을 줄로 만들기: [앞 설명] [이름, 대사] [이름, 대사] …
+  const parts = t.split(MARK);
+  let html = parts[0].trim() ? `<span class="say">${esc(parts[0].trim())}</span>` : "";
+  const firstSide = {};   // 처음 보는 이름은 번갈아 색 지정
+  for (let i = 1; i < parts.length; i += 2) {
+    const name = parts[i].trim();
+    let line = (parts[i + 1] || "").trim();
+    let after = "";
+    // 대사 뒤에 한국어 설명이 붙어 있으면 따로 떼어 아래에 보여주기 (예: "준비되셨나요?")
+    const k = line.search(/[가-힣]/);
+    if (k > 0) { after = line.slice(k).trim(); line = line.slice(0, k).trim(); }
+    line = line.replace(/^["“‘]\s*/, "").replace(/\s*["”]$/, "");   // 대사 앞뒤 따옴표 빼기
+
+    let side = sideOf(name);
+    if (!side) {
+      const key = name.toLowerCase();
+      if (!firstSide[key]) firstSide[key] = Object.keys(firstSide).length % 2 ? "u" : "t";
+      side = firstSide[key];
+    }
+    // 지나 코칭에서는 미션 카드처럼 "지나 / 나"로 표시
+    const shown = gina ? (side === "u" ? "나" : "지나") : name;
+    html += `<span class="line ${side}"><span class="spk">${esc(shown)}</span>${esc(line)}</span>`;
+    if (after) html += `<span class="say">${esc(after)}</span>`;
+  }
+  return html;
+}
+
 function appendText(entry, text) {
   entry.text += text;
-  entry.el.querySelector(".t").textContent = entry.text.replace(/\s+/g, " ").trimStart();
+  const t = entry.el.querySelector(".t");
+  if (entry.role === "user") t.textContent = entry.text.replace(/\s+/g, " ").trimStart();
+  else t.innerHTML = formatAIText(entry.text);
   window.scrollTo(0, document.body.scrollHeight);
 }
 function setStatus(text, state) {
