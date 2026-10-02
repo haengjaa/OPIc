@@ -10,6 +10,14 @@ const path = require("path");
 const routes = {
   "/api/token": require("./api/token.js"),
   "/api/feedback": require("./api/feedback.js"),
+  "/api/mission": require("./api/mission.js"),
+};
+const TYPES = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".png": "image/png",
+  ".txt": "text/plain; charset=utf-8",
 };
 const PORT = 3000;
 
@@ -22,7 +30,8 @@ http
       res.end(JSON.stringify(obj));
     };
 
-    const handler = routes[req.url];
+    const urlPath = req.url.split("?")[0];
+    const handler = routes[urlPath];
     if (handler) {
       let raw = "";
       req.on("data", (c) => (raw += c));
@@ -33,9 +42,13 @@ http
       return;
     }
 
-    if (req.url === "/" || req.url === "/index.html") {
-      res.setHeader("Content-Type", "text/html; charset=utf-8");
-      res.end(fs.readFileSync(path.join(__dirname, "index.html")));
+    // 화면 파일 보내기 (index.html, manifest.json, sw.js, icons/...)
+    const rel = urlPath === "/" ? "index.html" : urlPath.slice(1);
+    const file = path.join(__dirname, rel);
+    const allowed = file.startsWith(__dirname) && !rel.startsWith("api") && !rel.startsWith("lib") && !rel.startsWith(".") && TYPES[path.extname(file)];
+    if (allowed && fs.existsSync(file) && fs.statSync(file).isFile()) {
+      res.setHeader("Content-Type", TYPES[path.extname(file)]);
+      res.end(fs.readFileSync(file));
       return;
     }
 

@@ -2,8 +2,17 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>OPIc 스피킹 연습</title>
+  <!-- 휴대폰 "앱으로 설치"용 설정 -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#1f2a52" />
+  <link rel="icon" href="/icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="OPIc 연습" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <style>
     :root {
       --bg: #f6f7fb;
@@ -25,7 +34,23 @@
       font-family: -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
       line-height: 1.5;
     }
-    .wrap { max-width: 720px; margin: 0 auto; padding: 20px 16px 120px; }
+    .wrap {
+      max-width: 720px; margin: 0 auto;
+      /* 아이폰 노치·홈 바 영역 피하기 */
+      padding: calc(20px + env(safe-area-inset-top)) 16px calc(120px + env(safe-area-inset-bottom));
+    }
+    html { -webkit-text-size-adjust: 100%; }
+    body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+    .install {
+      display: none; background: #fff8e6; border: 1px solid #f5d27a; color: #6b4e00;
+      border-radius: 12px; padding: 12px 14px; font-size: 14px; margin-bottom: 14px;
+    }
+    .install b { color: #4a3600; }
+    .install button {
+      margin-top: 8px; border: 0; background: #1f2a52; color: #fff; border-radius: 8px;
+      padding: 8px 12px; font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .install .x { float: right; background: none; color: #6b4e00; margin: -4px -4px 0 0; padding: 4px 8px; }
     header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin-bottom: 16px; }
     header h1 { font-size: 22px; margin: 0; white-space: nowrap; }
     header small { color: var(--muted); }
@@ -66,7 +91,8 @@
     .msg .who { display: block; font-size: 11px; opacity: .7; margin-bottom: 2px; }
     .bar {
       position: fixed; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,.96);
-      border-top: 1px solid var(--line); padding: 10px 16px; display: none;
+      border-top: 1px solid var(--line); display: none;
+      padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
     }
     .bar .inner { max-width: 720px; margin: 0 auto; display: flex; gap: 8px; }
     .bar button {
@@ -78,28 +104,76 @@
     #feedbackBody { white-space: pre-wrap; font-size: 15px; }
     .err { color: var(--danger); font-size: 14px; margin-top: 8px; white-space: pre-wrap; }
     footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 24px; }
+    .small {
+      border: 1px solid var(--line); background: #fff; border-radius: 9px; padding: 8px 12px;
+      font-size: 14px; cursor: pointer; color: var(--ink);
+    }
+    .toggle { display: flex; align-items: center; gap: 8px; font-size: 15px; margin-top: 10px; cursor: pointer; }
+    .toggle input { width: 18px; height: 18px; }
+    .scriptInfo { font-size: 14px; color: var(--ink); background: var(--bg); border-radius: 10px; padding: 8px 12px; }
+    .mission { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 4px 14px; margin-bottom: 12px; }
+    .mission summary { cursor: pointer; font-weight: 700; padding: 10px 0; list-style: none; }
+    .mission summary::-webkit-details-marker { display: none; }
+    .mission summary::after { content: " ▾"; color: var(--muted); }
+    .mission[open] summary::after { content: " ▴"; }
+    .mission .sec { margin: 0 0 12px; font-size: 14px; }
+    .mission .sec b { display: block; margin-bottom: 4px; font-size: 14px; }
+    .mission ul { margin: 0; padding-left: 18px; }
+    .mission li { margin-bottom: 3px; }
+    .mission .en { font-weight: 600; }
+    .mission .ko { color: var(--muted); }
+    .mission .dl div { margin-bottom: 3px; }
+    .mission .dl .sp { font-size: 12px; font-weight: 700; color: var(--accent); margin-right: 4px; }
+    .mission .dl .u .sp { color: var(--ok); }
+    .mission .fix { color: var(--muted); }
+    .mission .fix s { color: var(--danger); }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag { font-size: 12px; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 3px 9px; }
   </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <h1>🎙️ OPIc 스피킹 연습</h1>
-    <small>AI 면접관과 실시간 음성 대화 · Gemini 무료</small>
+    <small>면접관 Ava · 튜터 지나 · 실시간 음성 · Gemini 무료</small>
   </header>
 
   <!-- ===== 1. 설정 화면 ===== -->
   <section id="setup">
-    <div class="card">
-      <h2>1. 연습 방식</h2>
-      <div class="row" id="modeChips">
-        <span class="chip on" data-v="topic">주제별 연습</span>
-        <span class="chip" data-v="mock">미니 모의고사 (약 10문항)</span>
-      </div>
-      <div class="hint">한 번 대화는 최대 15분이에요 (Gemini 제한). 14분 30초가 되면 자동으로 끝나고 피드백이 나와요.</div>
+    <!-- 휴대폰에서 아직 설치 안 했을 때만 보이는 안내 -->
+    <div class="install" id="installTip">
+      <button class="x" id="installClose" aria-label="닫기">✕</button>
+      <span id="installText"></span>
+      <div><button id="installBtn" style="display:none">📲 앱으로 설치하기</button></div>
     </div>
 
     <div class="card">
-      <h2>2. 목표 등급</h2>
+      <h2>연습 방식</h2>
+      <div class="row" id="modeChips">
+        <span class="chip on" data-v="gina">👩‍🏫 지나 코칭 (8단계)</span>
+        <span class="chip" data-v="topic">🎤 OPIc 주제별</span>
+        <span class="chip" data-v="mock">📋 OPIc 미니 모의고사</span>
+      </div>
+      <div class="hint" id="modeHint"></div>
+    </div>
+
+    <div class="card" id="scriptCard">
+      <h2>내 스크립트</h2>
+      <div class="scriptInfo" id="scriptInfo">스크립트 불러오는 중…</div>
+      <label class="toggle" id="useScriptRow">
+        <input type="checkbox" id="useScript" checked />
+        스크립트에서 무작위로 주제·상황 고르기
+      </label>
+      <div class="row" style="margin-top:10px">
+        <button class="small" id="scriptUploadBtn" type="button">📄 스크립트 파일 바꾸기</button>
+        <button class="small" id="scriptResetBtn" type="button">↩ 기본 스크립트로</button>
+        <input type="file" id="scriptFile" accept=".txt,text/plain" hidden />
+      </div>
+      <div class="hint">.txt 파일을 올리면 이 휴대폰(브라우저)에 저장돼요. "▶ 주제", "[소주제]", "Q.", "DAY 1" 처럼 적으면 항목이 잘 나뉘어요.</div>
+    </div>
+
+    <div class="card">
+      <h2>목표 등급</h2>
       <div class="row" id="levelChips">
         <span class="chip" data-v="IM">IM</span>
         <span class="chip on" data-v="IH">IH</span>
@@ -107,8 +181,8 @@
       </div>
     </div>
 
-    <div class="card">
-      <h2>3. 주제 선택 (서베이 항목, 여러 개 가능)</h2>
+    <div class="card" id="topicCard">
+      <h2>주제 선택 (서베이 항목, 여러 개 가능)</h2>
       <div class="row" id="topicChips">
         <span class="chip on" data-v="my home">집</span>
         <span class="chip on" data-v="my neighborhood">동네</span>
@@ -126,7 +200,7 @@
     </div>
 
     <div class="card">
-      <h2>4. 면접관 목소리</h2>
+      <h2>목소리</h2>
       <div class="row" id="voiceChips">
         <span class="chip on" data-v="Kore">Kore</span>
         <span class="chip" data-v="Aoede">Aoede</span>
@@ -136,7 +210,7 @@
     </div>
 
     <div class="card">
-      <h2>5. 앱 비밀번호</h2>
+      <h2>앱 비밀번호</h2>
       <input type="password" id="pw" placeholder="Vercel에 설정한 APP_PASSWORD (설정 안 했으면 비워두세요)" />
       <div class="hint">입력한 비밀번호는 이 브라우저에만 기억돼요.</div>
     </div>
@@ -155,6 +229,7 @@
         <span id="sessionTimer"></span>
       </span>
     </div>
+    <div id="sessionInfo"></div>
     <div class="msgs" id="msgs"></div>
   </section>
 
@@ -166,6 +241,7 @@
   </section>
 
   <footer>대화 내용은 앱에 저장되지 않아요 · Google Gemini API 사용</footer>
+  <script src="/script-parser.js"></script>
 </div>
 
 <div class="bar" id="bar">
@@ -204,6 +280,121 @@ const picked = (groupId) => [...$(groupId).querySelectorAll(".chip.on")].map((c)
 
 try { $("pw").value = localStorage.getItem("opic_pw") || ""; } catch {}
 
+// =====================================================================
+//  내 스크립트 불러오기 / 바꾸기
+// =====================================================================
+let scriptUnits = [];
+let scriptSource = "기본 스크립트";
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); return true; } catch { return false; } },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+
+function showScriptInfo() {
+  const c = { topic: 0, roleplay: 0, expr: 0 };
+  scriptUnits.forEach((u) => c[u.type]++);
+  const cats = new Set(scriptUnits.filter((u) => u.type !== "expr").map((u) => u.category)).size;
+  $("scriptInfo").textContent = scriptUnits.length
+    ? `📄 ${scriptSource} · 큰 주제 ${cats}개 · 답변 ${c.topic}개 · 롤플레이 ${c.roleplay}개 · 표현 묶음 ${c.expr}개`
+    : `⚠️ ${scriptSource}에서 내용을 찾지 못했어요. 다른 파일을 올려주세요.`;
+}
+
+async function loadScript() {
+  const custom = store.get("opic_script");
+  let text = "";
+  if (custom) {
+    text = custom;
+    scriptSource = store.get("opic_script_name") || "내가 올린 스크립트";
+  } else {
+    try {
+      const r = await fetch("/default-script.txt");
+      text = r.ok ? await r.text() : "";
+    } catch {}
+    scriptSource = "기본 스크립트";
+  }
+  scriptUnits = ScriptParser.parseScript(text);
+  showScriptInfo();
+  updateModeUI();
+}
+
+$("scriptUploadBtn").onclick = () => $("scriptFile").click();
+$("scriptFile").onchange = async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  if (f.size > 300 * 1024) { alert("파일이 너무 커요 (300KB 이하로 올려주세요)."); return; }
+  const text = await f.text();
+  const units = ScriptParser.parseScript(text);
+  if (!units.length) { alert("이 파일에서 영어 스크립트를 찾지 못했어요."); return; }
+  if (!store.set("opic_script", text)) { alert("저장 공간이 부족해서 저장하지 못했어요."); return; }
+  store.set("opic_script_name", f.name);
+  store.del("opic_recent");
+  e.target.value = "";
+  await loadScript();
+};
+$("scriptResetBtn").onclick = async () => {
+  store.del("opic_script");
+  store.del("opic_script_name");
+  store.del("opic_recent");
+  await loadScript();
+};
+
+// ---- 모드에 따라 화면 바꾸기 ----
+const MODE_HINT = {
+  gina: "튜터 지나가 내 스크립트에서 무작위로 고른 상황으로 미션 → 시연 → 롤플레이 2번 → 피드백 → 따라 말하기를 진행해요.",
+  topic: "면접관 Ava가 주제별로 OPIc 질문을 해요. 스크립트를 켜면 내 스크립트 주제·롤플레이로 질문해요.",
+  mock: "면접관 Ava가 자기소개부터 롤플레이까지 약 10문항을 진행해요.",
+};
+function currentMode() { return picked("modeChips")[0]; }
+function updateModeUI() {
+  const mode = currentMode();
+  const gina = mode === "gina";
+  $("modeHint").textContent = MODE_HINT[mode] + " 한 번 대화는 최대 15분이에요 (Gemini 제한).";
+  $("useScriptRow").style.display = gina ? "none" : "flex";   // 지나는 항상 스크립트 사용
+  const useScript = gina || $("useScript").checked;
+  $("topicCard").style.display = useScript && scriptUnits.length ? "none" : "block";
+}
+$("modeChips").addEventListener("click", updateModeUI);
+$("useScript").addEventListener("change", updateModeUI);
+loadScript();
+
+// ---- 화면에 보여주기용: HTML 특수문자 처리 ----
+const esc = (t) => String(t || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function renderMission(m) {
+  const exprs = (list) => list.map((e) => `<li><span class="en">${esc(e.en)}</span> <span class="ko">: ${esc(e.ko)}</span></li>`).join("");
+  const dl = m.dialogue.map((d) =>
+    `<div class="${d.speaker === "User" ? "u" : "t"}"><span class="sp">${d.speaker === "User" ? "나" : "지나"}</span>${esc(d.en)}</div>`).join("");
+  const fixes = (m.script_fixes || []).map((f) =>
+    `<li class="fix"><s>${esc(f.before)}</s> → <b style="display:inline;color:var(--ink)">${esc(f.after)}</b> <span class="ko">(${esc(f.why_ko)})</span></li>`).join("");
+  $("sessionInfo").innerHTML = `
+    <details class="mission" open>
+      <summary>🎓 오늘의 미션: ${esc(m.title_ko)}</summary>
+      <div class="sec"><b>📝 상황</b>${esc(m.scenario_ko)}<br><span class="ko">지나: ${esc(m.gina_role)} · 나: ${esc(m.user_role)}</span></div>
+      <div class="sec"><b>🔑 핵심 표현</b><ul>${exprs(m.expressions)}</ul></div>
+      <div class="sec dl"><b>💬 대화 예시</b>${dl}</div>
+      <div class="sec"><b>💡 꿀팁</b>${esc(m.tip_ko)}</div>
+      ${fixes ? `<div class="sec"><b>📌 내 스크립트 교정</b><ul>${fixes}</ul></div>` : ""}
+      <div class="sec"><b>➕ 응용 표현 (4단계에서 배워요)</b><ul>${exprs(m.followup_expressions || [])}</ul></div>
+    </details>`;
+}
+function renderPicks(labels) {
+  $("sessionInfo").innerHTML = `
+    <details class="mission">
+      <summary>🎲 오늘 내 스크립트에서 고른 주제 ${labels.length}개</summary>
+      <div class="sec tags">${labels.map((l) => `<span class="tag">${esc(l)}</span>`).join("")}</div>
+    </details>`;
+}
+function rememberRecent(labels) {
+  let recent = [];
+  try { recent = JSON.parse(store.get("opic_recent") || "[]"); } catch {}
+  recent = labels.concat(recent.filter((l) => !labels.includes(l))).slice(0, 12);
+  store.set("opic_recent", JSON.stringify(recent));
+}
+function recentLabels() {
+  try { return JSON.parse(store.get("opic_recent") || "[]"); } catch { return []; }
+}
+
 // ---- 상태 변수 ----
 let ws = null;               // Gemini와 연결된 WebSocket
 let ready = false;           // 설정 완료 여부
@@ -223,7 +414,7 @@ let settings = {};
 function newBubble(role, beforeEl) {
   const el = document.createElement("div");
   el.className = "msg " + (role === "user" ? "me" : "ai");
-  el.innerHTML = `<span class="who">${role === "user" ? "나" : "면접관"}</span><span class="t"></span>`;
+  el.innerHTML = `<span class="who">${role === "user" ? "나" : settings.mode === "gina" ? "지나" : "Ava"}</span><span class="t"></span>`;
   const entry = { role, text: "", el };
   if (beforeEl) {
     $("msgs").insertBefore(el, beforeEl);
@@ -364,9 +555,11 @@ function onMessage(ev) {
 
   if (msg.setupComplete) {
     ready = true;
-    setStatus("연결됨! 면접관이 곧 질문해요", "live");
+    setStatus(settings.mode === "gina" ? "연결됨! 지나가 곧 말을 걸어요" : "연결됨! Ava가 곧 질문해요", "live");
     startSessionTimer();
-    appSignal("The candidate is ready. Start the interview now.");
+    appSignal(settings.mode === "gina"
+      ? "The learner is ready and can see the mission card on screen. Do STEP 1 now."
+      : "The candidate is ready. Start the interview now.");
     return;
   }
 
@@ -376,7 +569,7 @@ function onMessage(ev) {
     for (const p of sc.modelTurn?.parts || []) {
       if (p.inlineData?.data && (p.inlineData.mimeType || "").startsWith("audio")) {
         playPcm(p.inlineData.data);
-        setStatus("면접관이 말하는 중…", "ai");
+        setStatus((settings.mode === "gina" ? "지나" : "Ava") + "가 말하는 중…", "ai");
         if (userSpeaking) { userSpeaking = false; stopAnswerTimer(); }
       }
     }
@@ -403,7 +596,7 @@ function onMessage(ev) {
       curAI = null;
       curUser = null;
       const wait = Math.max(0, (nextPlayTime - (outCtx?.currentTime || 0)) * 1000);
-      setTimeout(() => { if (!ended && !aiIsSpeaking()) setStatus("내 차례예요. 답변을 시작하세요 🎤", "live"); }, wait + 300);
+      setTimeout(() => { if (!ended && !aiIsSpeaking()) setStatus("내 차례예요. 말씀하세요 🎤", "live"); }, wait + 300);
     }
   }
 
@@ -446,40 +639,80 @@ function connect(token, model, apiVersion) {
 }
 
 // ---- 시작 ----
+// 이번 대화에 쓸 스크립트 내용 (피드백 때도 사용)
+let sessionScript = "";
+let sessionMission = null;
+let pendingRecent = [];   // 연결에 성공하면 "최근에 쓴 주제"로 기록
+
+async function postJSON(url, data) {
+  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `${url} 요청 실패 (${r.status})`);
+  return j;
+}
+
 $("startBtn").onclick = async () => {
   $("setupErr").textContent = "";
+  const mode = currentMode();
+  const useScript = (mode === "gina" || $("useScript").checked) && scriptUnits.length > 0;
   const topics = picked("topicChips");
-  if (!topics.length) { $("setupErr").textContent = "주제를 하나 이상 골라주세요."; return; }
+  if (mode === "gina" && !scriptUnits.length) { $("setupErr").textContent = "지나 코칭은 스크립트가 필요해요. 스크립트 파일을 올려주세요."; return; }
+  if (!useScript && !topics.length) { $("setupErr").textContent = "주제를 하나 이상 골라주세요."; return; }
 
   $("startBtn").disabled = true;
-  $("startBtn").textContent = "연결 중…";
+  $("startBtn").textContent = "준비 중…";
   // 소리 재생 준비 (버튼 클릭 순간에 만들어야 브라우저가 허용해요)
   outCtx = new AudioContext({ sampleRate: 24000 });
   outCtx.resume();
 
   settings = {
-    mode: picked("modeChips")[0],
+    mode,
     level: picked("levelChips")[0],
     voice: picked("voiceChips")[0],
     topics,
     password: $("pw").value,
   };
   try {
-    try { localStorage.setItem("opic_pw", settings.password); } catch {}
+    store.set("opic_pw", settings.password);
 
     // 1) 마이크 먼저 허락받기
     await startMic();
 
-    // 2) 우리 서버에서 임시 열쇠 받기
-    const tr = await fetch("/api/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(settings),
-    });
-    const tj = await tr.json().catch(() => ({}));
-    if (!tr.ok) throw new Error(tj.error || "임시 열쇠 발급 실패 (" + tr.status + ")");
+    // 2) 스크립트에서 무작위로 고르기
+    const tokenReq = { ...settings };
+    if (useScript) {
+      const pick = ScriptParser.pickForSession(scriptUnits, mode, recentLabels());
+      if (mode === "gina") {
+        $("startBtn").textContent = "지나가 오늘의 미션을 준비 중… (10초 정도)";
+        const { mission } = await postJSON("/api/mission", {
+          password: settings.password,
+          level: settings.level,
+          excerpt: ScriptParser.unitToText(pick.main),
+          expressions: pick.expressions,
+          recent: recentLabels(),
+        });
+        sessionMission = mission;
+        sessionScript = ScriptParser.unitToText(pick.main);
+        tokenReq.mission = mission;
+        tokenReq.backups = pick.backups.map(ScriptParser.unitToText).join("\n\n");
+        renderMission(mission);
+        pendingRecent = [pick.main.label];
+      } else {
+        const chosen = pick.topics.concat(pick.roleplays);
+        sessionScript =
+          chosen.map(ScriptParser.unitToText).join("\n\n") +
+          (pick.expressions.length ? "\n\n### Useful expressions from my notes\n" + pick.expressions.join("\n") : "");
+        tokenReq.script = sessionScript;
+        renderPicks(chosen.map((u) => u.label));
+        pendingRecent = chosen.map((u) => u.label);
+      }
+    }
 
-    // 3) Gemini 연결 (v1beta 실패 시 v1alpha로 한 번 더)
+    // 3) 우리 서버에서 임시 열쇠 받기
+    $("startBtn").textContent = "연결 중…";
+    const tj = await postJSON("/api/token", tokenReq);
+
+    // 4) Gemini 연결 (v1beta 실패 시 v1alpha로 한 번 더)
     $("setup").style.display = "none";
     $("chat").style.display = "block";
     setStatus("Gemini에 연결 중…", "");
@@ -489,14 +722,17 @@ $("startBtn").onclick = async () => {
       console.warn(e1);
       await connect(tj.token, tj.model, "v1alpha");
     }
+    rememberRecent(pendingRecent);
+    $("nextBtn").textContent = mode === "gina" ? "⏭ 다음 단계" : "⏭ 다음 질문";
     $("bar").style.display = "block";
   } catch (err) {
     console.error(err);
     let msg = err.message || String(err);
-    if (err.name === "NotAllowedError") msg = "마이크 권한이 거부됐어요. 주소창 왼쪽 자물쇠 아이콘에서 마이크를 허용해주세요.";
+    if (err.name === "NotAllowedError") msg = "마이크 권한이 거부됐어요. 주소창 왼쪽 자물쇠 아이콘(또는 휴대폰 설정)에서 마이크를 허용해주세요.";
     if (err.name === "NotFoundError") msg = "마이크를 찾을 수 없어요. 마이크(이어폰 마이크)가 연결됐는지 확인해주세요.";
     $("setup").style.display = "block";
     $("chat").style.display = "none";
+    $("sessionInfo").innerHTML = "";
     $("setupErr").textContent = msg;
     $("startBtn").disabled = false;
     $("startBtn").textContent = "▶ 시작하기 (마이크 허용 필요)";
@@ -509,17 +745,22 @@ $("startBtn").onclick = async () => {
 // ---- 하단 버튼 ----
 $("repeatBtn").onclick = () => {
   stopPlayback();
-  appSignal("Please repeat your last question once, a little more slowly.");
+  appSignal(settings.mode === "gina"
+    ? "Please repeat what you just said once more, a little more slowly."
+    : "Please repeat your last question once, a little more slowly.");
 };
 $("nextBtn").onclick = () => {
   stopPlayback();
-  appSignal("Please skip to the next question now.");
+  appSignal(settings.mode === "gina"
+    ? "The learner wants to move on. Finish the current step briefly and go to the next step now."
+    : "Please skip to the next question now.");
 };
 $("endBtn").onclick = () => endAndFeedback();
 
 async function endAndFeedback(note) {
   if (ended) return;
   ended = true;
+  allowScreenOff();
   clearInterval(sessionTimerId);
   stopAnswerTimer();
   $("bar").style.display = "none";
@@ -535,7 +776,10 @@ async function endAndFeedback(note) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         password: settings.password,
+        mode: settings.mode,
         level: settings.level,
+        script: sessionScript,
+        missionTitle: sessionMission ? sessionMission.title_ko : "",
         transcript: transcript.map((t) => ({ role: t.role, text: t.text })),
       }),
     });
@@ -553,6 +797,73 @@ function cleanupAudio() {
   micStream = micCtx = micNode = null;
 }
 window.addEventListener("beforeunload", () => { try { ws && ws.close(); } catch {} cleanupAudio(); });
+
+// =====================================================================
+//  휴대폰 앱 관련 기능
+// =====================================================================
+
+// ---- 대화 중 화면 꺼짐 방지 (지원하는 브라우저에서만) ----
+let wakeLock = null;
+async function keepScreenOn() {
+  try { if ("wakeLock" in navigator && !wakeLock) wakeLock = await navigator.wakeLock.request("screen"); }
+  catch (e) { console.warn("화면 꺼짐 방지 실패:", e.message); }
+  if (wakeLock) wakeLock.addEventListener("release", () => { wakeLock = null; });
+}
+function allowScreenOff() { try { wakeLock && wakeLock.release(); } catch {} wakeLock = null; }
+
+// 다른 앱 갔다가 돌아오면: 화면 꺼짐 방지 다시 켜고, 소리 다시 켜기
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") return;
+  if (ready && !ended) {
+    keepScreenOn();
+    try { outCtx && outCtx.resume(); micCtx && micCtx.resume(); } catch {}
+  }
+});
+// 대화 시작/종료에 맞춰 켜고 끄기
+$("startBtn").addEventListener("click", keepScreenOn);
+$("endBtn").addEventListener("click", allowScreenOff);
+
+// ---- 서비스 워커 등록 (앱 설치에 필요) ----
+if ("serviceWorker" in navigator && location.protocol !== "file:") {
+  window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(console.warn));
+}
+
+// ---- "앱으로 설치" 안내 ----
+(function installTip() {
+  const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  let dismissed = false;
+  try { dismissed = localStorage.getItem("opic_install_dismissed") === "1"; } catch {}
+  if (standalone || !mobile || dismissed) return;
+
+  const tip = $("installTip");
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || navigator.platform === "MacIntel";
+  $("installText").innerHTML = isIOS
+    ? "<b>앱처럼 쓰려면:</b> Safari의 <b>공유 버튼(□↑)</b> (안 보이면 <b>⋯</b> 안에 있어요) → <b>홈 화면에 추가</b>를 누르세요."
+    : "<b>앱처럼 쓰려면:</b> 크롬 오른쪽 위 <b>⋮ 메뉴</b> → <b>홈 화면에 추가</b>(또는 앱 설치)를 누르세요.";
+  tip.style.display = "block";
+
+  // 안드로이드 크롬: 설치 버튼 바로 띄우기
+  let deferred = null;
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferred = e;
+    $("installBtn").style.display = "inline-block";
+  });
+  $("installBtn").onclick = async () => {
+    if (!deferred) return;
+    deferred.prompt();
+    await deferred.userChoice;
+    deferred = null;
+    tip.style.display = "none";
+  };
+  $("installClose").onclick = () => {
+    tip.style.display = "none";
+    try { localStorage.setItem("opic_install_dismissed", "1"); } catch {}
+  };
+  window.addEventListener("appinstalled", () => { tip.style.display = "none"; });
+})();
 </script>
 </body>
 </html>
