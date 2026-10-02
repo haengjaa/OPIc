@@ -20,7 +20,8 @@ Google Gemini API의 **무료 등급**으로 동작해요.
 | `api/feedback.js` | 서버: 대화 기록을 받아 한국어 피드백 생성 |
 | `api/mission.js` | 서버: 스크립트로 지나의 "오늘의 미션" 카드 생성 |
 | `lib/prompts.js` | AI에게 주는 지시문 모음 (Ava 면접관, 지나 8단계 등) — 말투·규칙을 바꾸고 싶으면 여기 |
-| `lib/common.js` | 서버 파일들이 같이 쓰는 도구 |
+| `lib/common.js` | 서버 파일들이 같이 쓰는 도구 (Google 서버가 바쁠 때 자동 재시도 포함) |
+| `vercel.json` | 서버 기능이 최대 60초까지 기다릴 수 있게 하는 설정 (재시도할 시간 확보) |
 | `default-script.txt` | 기본으로 들어있는 내 스크립트 |
 | `script-parser.js` | 스크립트를 주제별 항목으로 나누고 무작위로 고르는 기능 |
 | `manifest.json` | 휴대폰에 앱으로 설치할 때 쓰는 앱 이름·아이콘 정보 |
@@ -118,6 +119,7 @@ Node.js 20.6 이상이 필요해요 (확인: 명령 프롬프트에서 `node --v
 |---|---|
 | "비밀번호가 틀렸어요" | Vercel의 `APP_PASSWORD`와 똑같이 입력했는지 확인 |
 | "API key not valid" | `GEMINI_API_KEY` 값 확인 (앞뒤 공백 없이) |
+| "high demand" / "503" / "서버가 많이 바빠요" | Google 서버가 일시적으로 붐비는 거예요 (내 잘못 아님). 앱이 자동으로 몇 번 다시 시도하고 다른 무료 모델로도 바꿔봐요. 그래도 뜨면 1~2분 뒤 다시 시작 |
 | "quota" / "429" / "RESOURCE_EXHAUSTED" | 무료 사용량을 다 썼어요. 잠시(또는 다음 날) 후 다시 시도. 내 한도는 AI Studio에서 확인 |
 | "연결 실패" / 모델 관련 오류 | Vercel 환경변수 `LIVE_MODEL`에 다른 모델 지정 (예: `gemini-3.1-flash-live-preview`) 후 Redeploy |
 | 미션 카드·피드백만 오류 | 환경변수 `TEXT_MODEL`에 다른 모델 지정 (예: `gemini-3.5-flash-lite`) |

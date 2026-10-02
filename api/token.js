@@ -11,7 +11,7 @@
 //    LIVE_MODEL      (선택) 기본값 gemini-3.8-live
 //    TEXT_MODEL      (선택) 미션·피드백용, 기본값 gemini-3.5-flash
 // =====================================================================
-const { guard } = require("../lib/common.js");
+const { guard, friendly } = require("../lib/common.js");
 const { opicInstructions, ginaInstructions } = require("../lib/prompts.js");
 const { cleanMission } = require("./mission.js");
 
@@ -69,17 +69,23 @@ module.exports = async function handler(req, res) {
   };
 
   try {
-    const r = await fetch("https://generativelanguage.googleapis.com/v1beta/auth_tokens", {
-      method: "POST",
-      headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify(tokenRequest),
-    });
-    const data = await r.json().catch(() => ({}));
+    // Google 서버가 바쁘면(503 등) 1초 쉬고 최대 3번까지 시도
+    let r, data;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      r = await fetch("https://generativelanguage.googleapis.com/v1beta/auth_tokens", {
+        method: "POST",
+        headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
+        body: JSON.stringify(tokenRequest),
+      });
+      data = await r.json().catch(() => ({}));
+      if (r.ok || ![429, 500, 502, 503, 504].includes(r.status)) break;
+      console.warn(`token 시도 ${attempt} 실패 (${r.status})`);
+      if (attempt < 3) await new Promise((ok) => setTimeout(ok, 1000));
+    }
     if (!r.ok || !data.name) {
       console.error("Gemini token error:", data);
-      res.status(r.ok ? 500 : r.status).json({
-        error: "Gemini에서 오류가 났어요: " + (data?.error?.message || r.statusText || "임시 열쇠 없음"),
-      });
+      const e = friendly({ status: r.ok ? 500 : r.status, message: data?.error?.message || r.statusText || "임시 열쇠 없음" });
+      res.status(e.status).json({ error: "Gemini 연결 준비 오류: " + e.message });
       return;
     }
     res.status(200).json({ token: data.name, model });
