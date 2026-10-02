@@ -1,0 +1,12 @@
+{
+  "name": "opic-voice-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "OPIc speaking practice with a realtime AI voice interviewer",
+  "scripts": {
+    "start": "node --env-file=.env local-server.js"
+  },
+  "engines": {
+    "node": ">=20.6"
+  }
+}

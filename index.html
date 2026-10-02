@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OPIc 스피킹 연습</title>
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --ink: #1d2233;
+      --muted: #6b7285;
+      --line: #e3e6ef;
+      --accent: #2f5bea;
+      --accent-soft: #e8eefe;
+      --ai: #f1f3f8;
+      --me: #2f5bea;
+      --danger: #d64545;
+      --ok: #1f9d63;
+      --warn: #c77700;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--ink);
+      font-family: -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+      line-height: 1.5;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 20px 16px 120px; }
+    header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin-bottom: 16px; }
+    header h1 { font-size: 22px; margin: 0; white-space: nowrap; }
+    header small { color: var(--muted); }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+    .card h2 { font-size: 15px; margin: 0 0 10px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      border: 1px solid var(--line); background: #fff; border-radius: 999px;
+      padding: 7px 13px; font-size: 14px; cursor: pointer; user-select: none;
+    }
+    .chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+    input[type=password] {
+      width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 15px;
+    }
+    .hint { color: var(--muted); font-size: 13px; margin-top: 6px; }
+    button.big {
+      width: 100%; padding: 14px; font-size: 16px; font-weight: 700; border: 0; border-radius: 12px;
+      background: var(--accent); color: #fff; cursor: pointer;
+    }
+    button.big:disabled { opacity: .5; cursor: default; }
+    #chat { display: none; }
+    .status {
+      position: sticky; top: 0; z-index: 2; background: var(--bg);
+      display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px;
+      font-size: 14px; color: var(--muted); padding: 8px 0 10px;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: #bbb; flex: none; }
+    .dot.live { background: var(--ok); }
+    .dot.talk { background: var(--danger); animation: pulse 1s infinite; }
+    .dot.ai { background: var(--accent); animation: pulse 1.4s infinite; }
+    @keyframes pulse { 50% { opacity: .3; } }
+    .timers { margin-left: auto; font-variant-numeric: tabular-nums; display: flex; gap: 10px; }
+    .timers .low { color: var(--warn); font-weight: 700; }
+    .msgs { display: flex; flex-direction: column; gap: 10px; }
+    .msg { max-width: 85%; padding: 10px 13px; border-radius: 14px; font-size: 15px; white-space: pre-wrap; }
+    .msg.ai { background: var(--ai); align-self: flex-start; border-top-left-radius: 4px; }
+    .msg.me { background: var(--me); color: #fff; align-self: flex-end; border-top-right-radius: 4px; }
+    .msg .who { display: block; font-size: 11px; opacity: .7; margin-bottom: 2px; }
+    .bar {
+      position: fixed; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,.96);
+      border-top: 1px solid var(--line); padding: 10px 16px; display: none;
+    }
+    .bar .inner { max-width: 720px; margin: 0 auto; display: flex; gap: 8px; }
+    .bar button {
+      flex: 1; padding: 12px 6px; border-radius: 10px; border: 1px solid var(--line);
+      background: #fff; font-size: 14px; font-weight: 600; cursor: pointer; color: var(--ink);
+    }
+    .bar button.stop { background: var(--danger); color: #fff; border-color: var(--danger); }
+    #feedback { display: none; }
+    #feedbackBody { white-space: pre-wrap; font-size: 15px; }
+    .err { color: var(--danger); font-size: 14px; margin-top: 8px; white-space: pre-wrap; }
+    footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 24px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🎙️ OPIc 스피킹 연습</h1>
+    <small>AI 면접관과 실시간 음성 대화 · Gemini 무료</small>
+  </header>
+
+  <!-- ===== 1. 설정 화면 ===== -->
+  <section id="setup">
+    <div class="card">
+      <h2>1. 연습 방식</h2>
+      <div class="row" id="modeChips">
+        <span class="chip on" data-v="topic">주제별 연습</span>
+        <span class="chip" data-v="mock">미니 모의고사 (약 10문항)</span>
+      </div>
+      <div class="hint">한 번 대화는 최대 15분이에요 (Gemini 제한). 14분 30초가 되면 자동으로 끝나고 피드백이 나와요.</div>
+    </div>
+
+    <div class="card">
+      <h2>2. 목표 등급</h2>
+      <div class="row" id="levelChips">
+        <span class="chip" data-v="IM">IM</span>
+        <span class="chip on" data-v="IH">IH</span>
+        <span class="chip" data-v="AL">AL</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>3. 주제 선택 (서베이 항목, 여러 개 가능)</h2>
+      <div class="row" id="topicChips">
+        <span class="chip on" data-v="my home">집</span>
+        <span class="chip on" data-v="my neighborhood">동네</span>
+        <span class="chip" data-v="watching movies">영화보기</span>
+        <span class="chip" data-v="listening to music">음악감상</span>
+        <span class="chip" data-v="going to parks">공원가기</span>
+        <span class="chip" data-v="going to cafes">카페가기</span>
+        <span class="chip" data-v="shopping">쇼핑</span>
+        <span class="chip" data-v="walking and jogging">걷기·조깅</span>
+        <span class="chip" data-v="domestic travel">국내여행</span>
+        <span class="chip" data-v="overseas travel">해외여행</span>
+        <span class="chip" data-v="staying home on vacation">집에서 휴가</span>
+        <span class="chip" data-v="cooking">요리</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>4. 면접관 목소리</h2>
+      <div class="row" id="voiceChips">
+        <span class="chip on" data-v="Kore">Kore</span>
+        <span class="chip" data-v="Aoede">Aoede</span>
+        <span class="chip" data-v="Puck">Puck</span>
+        <span class="chip" data-v="Charon">Charon</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>5. 앱 비밀번호</h2>
+      <input type="password" id="pw" placeholder="Vercel에 설정한 APP_PASSWORD (설정 안 했으면 비워두세요)" />
+      <div class="hint">입력한 비밀번호는 이 브라우저에만 기억돼요.</div>
+    </div>
+
+    <button class="big" id="startBtn">▶ 시작하기 (마이크 허용 필요)</button>
+    <div class="err" id="setupErr"></div>
+  </section>
+
+  <!-- ===== 2. 대화 화면 ===== -->
+  <section id="chat">
+    <div class="status">
+      <span class="dot" id="dot"></span>
+      <span id="statusText">연결 중…</span>
+      <span class="timers">
+        <span id="answerTimer"></span>
+        <span id="sessionTimer"></span>
+      </span>
+    </div>
+    <div class="msgs" id="msgs"></div>
+  </section>
+
+  <!-- ===== 3. 피드백 ===== -->
+  <section id="feedback" class="card" style="margin-top:16px">
+    <h2>📝 피드백</h2>
+    <div id="feedbackBody">분석 중이에요… (10~30초 정도 걸려요)</div>
+    <div style="margin-top:14px"><button class="big" onclick="location.reload()">처음으로</button></div>
+  </section>
+
+  <footer>대화 내용은 앱에 저장되지 않아요 · Google Gemini API 사용</footer>
+</div>
+
+<div class="bar" id="bar">
+  <div class="inner">
+    <button id="repeatBtn">🔁 다시 들려줘</button>
+    <button id="nextBtn">⏭ 다음 질문</button>
+    <button id="endBtn" class="stop">■ 종료 + 피드백</button>
+  </div>
+</div>
+
+<script>
+// =====================================================================
+//  화면 동작 코드
+// =====================================================================
+const $ = (id) => document.getElementById(id);
+
+const SESSION_LIMIT_SEC = 15 * 60;   // Gemini 음성 대화 최대 15분
+const AUTO_END_SEC = 14 * 60 + 30;   // 끊기기 전에 14분 30초에 자동 종료
+
+// ---- 칩(버튼) 선택 ----
+function singleSelect(groupId) {
+  const g = $(groupId);
+  g.addEventListener("click", (e) => {
+    if (!e.target.classList.contains("chip")) return;
+    g.querySelectorAll(".chip").forEach((c) => c.classList.remove("on"));
+    e.target.classList.add("on");
+  });
+}
+singleSelect("modeChips");
+singleSelect("levelChips");
+singleSelect("voiceChips");
+$("topicChips").addEventListener("click", (e) => {
+  if (e.target.classList.contains("chip")) e.target.classList.toggle("on");
+});
+const picked = (groupId) => [...$(groupId).querySelectorAll(".chip.on")].map((c) => c.dataset.v);
+
+try { $("pw").value = localStorage.getItem("opic_pw") || ""; } catch {}
+
+// ---- 상태 변수 ----
+let ws = null;               // Gemini와 연결된 WebSocket
+let ready = false;           // 설정 완료 여부
+let ended = false;
+let micStream = null, micCtx = null, micNode = null;
+let outCtx = null;           // 면접관 목소리 재생용
+let playing = [];            // 재생 중인 소리 조각들
+let nextPlayTime = 0;
+const transcript = [];       // 피드백용 대화 기록 [{role, text}]
+let curUser = null, curAI = null;   // 현재 말풍선
+let sessionStart = 0, sessionTimerId = null;
+let answerStart = 0, answerTimerId = null;
+let userSpeaking = false;
+let settings = {};
+
+// ---- 말풍선 ----
+function newBubble(role, beforeEl) {
+  const el = document.createElement("div");
+  el.className = "msg " + (role === "user" ? "me" : "ai");
+  el.innerHTML = `<span class="who">${role === "user" ? "나" : "면접관"}</span><span class="t"></span>`;
+  const entry = { role, text: "", el };
+  if (beforeEl) {
+    $("msgs").insertBefore(el, beforeEl);
+    // 기록 순서도 맞춰주기
+    const idx = transcript.findIndex((t) => t.el === beforeEl);
+    transcript.splice(idx < 0 ? transcript.length : idx, 0, entry);
+  } else {
+    $("msgs").appendChild(el);
+    transcript.push(entry);
+  }
+  return entry;
+}
+function appendText(entry, text) {
+  entry.text += text;
+  entry.el.querySelector(".t").textContent = entry.text.replace(/\s+/g, " ").trimStart();
+  window.scrollTo(0, document.body.scrollHeight);
+}
+function setStatus(text, state) {
+  $("statusText").textContent = text;
+  $("dot").className = "dot " + (state || "");
+}
+const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.max(0, s) % 60).padStart(2, "0")}`;
+
+// ---- 타이머 ----
+function startSessionTimer() {
+  sessionStart = Date.now();
+  sessionTimerId = setInterval(() => {
+    const used = Math.floor((Date.now() - sessionStart) / 1000);
+    const left = SESSION_LIMIT_SEC - used;
+    const el = $("sessionTimer");
+    el.textContent = "남은 시간 " + mmss(left);
+    el.className = left <= 120 ? "low" : "";
+    if (used >= AUTO_END_SEC && !ended) endAndFeedback("15분 제한이 다가와서 자동으로 종료했어요.");
+  }, 500);
+}
+function startAnswerTimer() {
+  answerStart = Date.now();
+  clearInterval(answerTimerId);
+  answerTimerId = setInterval(() => {
+    $("answerTimer").textContent = "내 답변 " + mmss(Math.floor((Date.now() - answerStart) / 1000));
+  }, 250);
+}
+function stopAnswerTimer() { clearInterval(answerTimerId); }
+
+// ---- 면접관 목소리 재생 (24kHz, 16bit PCM) ----
+function playPcm(base64) {
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const pcm = new Int16Array(bytes.buffer, 0, Math.floor(bytes.length / 2));
+  const f32 = new Float32Array(pcm.length);
+  for (let i = 0; i < pcm.length; i++) f32[i] = pcm[i] / 32768;
+
+  const buf = outCtx.createBuffer(1, f32.length, 24000);
+  buf.copyToChannel(f32, 0);
+  const src = outCtx.createBufferSource();
+  src.buffer = buf;
+  src.connect(outCtx.destination);
+  const t = Math.max(nextPlayTime, outCtx.currentTime + 0.05);
+  src.start(t);
+  nextPlayTime = t + buf.duration;
+  playing.push(src);
+  src.onended = () => { playing = playing.filter((s) => s !== src); };
+}
+function stopPlayback() {
+  playing.forEach((s) => { try { s.stop(); } catch {} });
+  playing = [];
+  nextPlayTime = 0;
+}
+// 면접관이 말하는 중인지 (말하는 동안엔 내 마이크를 무음으로 보내서 메아리 방지)
+const aiIsSpeaking = () => outCtx && outCtx.currentTime < nextPlayTime + 0.3;
+
+// ---- 마이크 → 16kHz PCM → Gemini ----
+const WORKLET = `
+class Grab extends AudioWorkletProcessor {
+  process(inputs) { const ch = inputs[0][0]; if (ch) this.port.postMessage(ch.slice(0)); return true; }
+}
+registerProcessor("grab", Grab);`;
+
+async function startMic() {
+  micStream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
+  });
+  micCtx = new AudioContext();
+  const url = URL.createObjectURL(new Blob([WORKLET], { type: "text/javascript" }));
+  await micCtx.audioWorklet.addModule(url);
+  const src = micCtx.createMediaStreamSource(micStream);
+  micNode = new AudioWorkletNode(micCtx, "grab");
+  src.connect(micNode);
+
+  const ratio = micCtx.sampleRate / 16000;
+  let pending = [];
+  let pendingLen = 0;
+  micNode.port.onmessage = (e) => {
+    if (!ready || ended) return;
+    const input = e.data;
+    // 16kHz로 줄이기 (구간 평균)
+    const outLen = Math.floor(input.length / ratio);
+    const out = new Int16Array(outLen);
+    const mute = aiIsSpeaking();
+    for (let i = 0; i < outLen; i++) {
+      const start = Math.floor(i * ratio), end = Math.floor((i + 1) * ratio);
+      let sum = 0;
+      for (let j = start; j < end; j++) sum += input[j];
+      const v = mute ? 0 : Math.max(-1, Math.min(1, sum / (end - start)));
+      out[i] = v < 0 ? v * 0x8000 : v * 0x7fff;
+    }
+    pending.push(out);
+    pendingLen += outLen;
+    // 약 0.1초(1600샘플)씩 모아서 보내기
+    if (pendingLen >= 1600) {
+      const all = new Int16Array(pendingLen);
+      let off = 0;
+      pending.forEach((p) => { all.set(p, off); off += p.length; });
+      pending = []; pendingLen = 0;
+      const bytes = new Uint8Array(all.buffer);
+      let bin = "";
+      for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      send({ realtimeInput: { audio: { data: btoa(bin), mimeType: "audio/pcm;rate=16000" } } });
+    }
+  };
+}
+
+function send(obj) {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
+}
+// 버튼 지시를 면접관에게 전달 (글자로)
+function appSignal(text) {
+  send({ realtimeInput: { text: "[APP] " + text } });
+}
+
+// ---- Gemini에서 오는 메시지 처리 ----
+const decoder = new TextDecoder();
+function onMessage(ev) {
+  const raw = typeof ev.data === "string" ? ev.data : decoder.decode(ev.data);
+  let msg;
+  try { msg = JSON.parse(raw); } catch { return; }
+
+  if (msg.setupComplete) {
+    ready = true;
+    setStatus("연결됨! 면접관이 곧 질문해요", "live");
+    startSessionTimer();
+    appSignal("The candidate is ready. Start the interview now.");
+    return;
+  }
+
+  const sc = msg.serverContent;
+  if (sc) {
+    // 면접관 목소리
+    for (const p of sc.modelTurn?.parts || []) {
+      if (p.inlineData?.data && (p.inlineData.mimeType || "").startsWith("audio")) {
+        playPcm(p.inlineData.data);
+        setStatus("면접관이 말하는 중…", "ai");
+        if (userSpeaking) { userSpeaking = false; stopAnswerTimer(); }
+      }
+    }
+    // 내 말 → 글자
+    if (sc.inputTranscription?.text) {
+      if (!curUser) {
+        curUser = newBubble("user", curAI ? curAI.el : null); // 면접관 말보다 앞에 오도록
+        userSpeaking = true;
+        startAnswerTimer();
+        setStatus("듣고 있어요… 편하게 말하세요", "talk");
+      }
+      appendText(curUser, sc.inputTranscription.text);
+    }
+    // 면접관 말 → 글자
+    if (sc.outputTranscription?.text) {
+      if (!curAI) curAI = newBubble("ai");
+      appendText(curAI, sc.outputTranscription.text);
+    }
+    // 내가 말을 시작해서 면접관 말이 끊긴 경우
+    if (sc.interrupted) stopPlayback();
+    // 면접관 차례 끝
+    if (sc.turnComplete) {
+      if (userSpeaking) { userSpeaking = false; stopAnswerTimer(); }
+      curAI = null;
+      curUser = null;
+      const wait = Math.max(0, (nextPlayTime - (outCtx?.currentTime || 0)) * 1000);
+      setTimeout(() => { if (!ended && !aiIsSpeaking()) setStatus("내 차례예요. 답변을 시작하세요 🎤", "live"); }, wait + 300);
+    }
+  }
+
+  if (msg.goAway) setStatus("곧 연결이 끊겨요 — 종료 버튼을 눌러 피드백을 받으세요", "");
+  if (msg.error) setStatus("오류: " + (msg.error.message || JSON.stringify(msg.error)), "");
+}
+
+// ---- Gemini에 연결 ----
+function connect(token, model, apiVersion) {
+  return new Promise((resolve, reject) => {
+    const url =
+      `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.${apiVersion}` +
+      `.GenerativeService.BidiGenerateContentConstrained?access_token=${token}`;
+    const sock = new WebSocket(url);
+    sock.binaryType = "arraybuffer"; // Gemini는 메시지를 바이너리로 보내요
+    let opened = false;
+    sock.onopen = () => {
+      opened = true;
+      ws = sock;
+      // 세부 설정은 서버가 임시 열쇠에 잠가뒀으므로 모델만 알려주면 돼요
+      sock.send(JSON.stringify({ setup: { model: `models/${model}`, generationConfig: { responseModalities: ["AUDIO"] } } }));
+    };
+    sock.onmessage = (ev) => {
+      onMessage(ev);
+      if (ready) resolve();
+    };
+    sock.onerror = () => {};
+    sock.onclose = (ev) => {
+      if (!ready) {
+        reject(new Error(`연결 실패 (${apiVersion}, 코드 ${ev.code})${ev.reason ? ": " + ev.reason : ""}`));
+        return;
+      }
+      if (!ended) {
+        setStatus("연결이 끊겼어요" + (ev.reason ? ` (${ev.reason})` : "") + " — 종료 버튼으로 피드백을 받을 수 있어요", "");
+        cleanupAudio();
+      }
+    };
+    setTimeout(() => { if (!ready) { try { sock.close(); } catch {} reject(new Error("연결 시간 초과" + (opened ? "" : " (서버 응답 없음)"))); } }, 15000);
+  });
+}
+
+// ---- 시작 ----
+$("startBtn").onclick = async () => {
+  $("setupErr").textContent = "";
+  const topics = picked("topicChips");
+  if (!topics.length) { $("setupErr").textContent = "주제를 하나 이상 골라주세요."; return; }
+
+  $("startBtn").disabled = true;
+  $("startBtn").textContent = "연결 중…";
+  // 소리 재생 준비 (버튼 클릭 순간에 만들어야 브라우저가 허용해요)
+  outCtx = new AudioContext({ sampleRate: 24000 });
+  outCtx.resume();
+
+  settings = {
+    mode: picked("modeChips")[0],
+    level: picked("levelChips")[0],
+    voice: picked("voiceChips")[0],
+    topics,
+    password: $("pw").value,
+  };
+  try {
+    try { localStorage.setItem("opic_pw", settings.password); } catch {}
+
+    // 1) 마이크 먼저 허락받기
+    await startMic();
+
+    // 2) 우리 서버에서 임시 열쇠 받기
+    const tr = await fetch("/api/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(settings),
+    });
+    const tj = await tr.json().catch(() => ({}));
+    if (!tr.ok) throw new Error(tj.error || "임시 열쇠 발급 실패 (" + tr.status + ")");
+
+    // 3) Gemini 연결 (v1beta 실패 시 v1alpha로 한 번 더)
+    $("setup").style.display = "none";
+    $("chat").style.display = "block";
+    setStatus("Gemini에 연결 중…", "");
+    try {
+      await connect(tj.token, tj.model, "v1beta");
+    } catch (e1) {
+      console.warn(e1);
+      await connect(tj.token, tj.model, "v1alpha");
+    }
+    $("bar").style.display = "block";
+  } catch (err) {
+    console.error(err);
+    let msg = err.message || String(err);
+    if (err.name === "NotAllowedError") msg = "마이크 권한이 거부됐어요. 주소창 왼쪽 자물쇠 아이콘에서 마이크를 허용해주세요.";
+    if (err.name === "NotFoundError") msg = "마이크를 찾을 수 없어요. 마이크(이어폰 마이크)가 연결됐는지 확인해주세요.";
+    $("setup").style.display = "block";
+    $("chat").style.display = "none";
+    $("setupErr").textContent = msg;
+    $("startBtn").disabled = false;
+    $("startBtn").textContent = "▶ 시작하기 (마이크 허용 필요)";
+    ready = false;
+    cleanupAudio();
+    try { ws && ws.close(); } catch {}
+  }
+};
+
+// ---- 하단 버튼 ----
+$("repeatBtn").onclick = () => {
+  stopPlayback();
+  appSignal("Please repeat your last question once, a little more slowly.");
+};
+$("nextBtn").onclick = () => {
+  stopPlayback();
+  appSignal("Please skip to the next question now.");
+};
+$("endBtn").onclick = () => endAndFeedback();
+
+async function endAndFeedback(note) {
+  if (ended) return;
+  ended = true;
+  clearInterval(sessionTimerId);
+  stopAnswerTimer();
+  $("bar").style.display = "none";
+  $("feedback").style.display = "block";
+  setStatus(note || "인터뷰 종료", "");
+  try { ws && ws.close(); } catch {}
+  cleanupAudio();
+  $("feedback").scrollIntoView({ behavior: "smooth" });
+
+  try {
+    const r = await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        password: settings.password,
+        level: settings.level,
+        transcript: transcript.map((t) => ({ role: t.role, text: t.text })),
+      }),
+    });
+    const j = await r.json().catch(() => ({}));
+    $("feedbackBody").textContent = (note ? note + "\n\n" : "") + (j.feedback || j.error || "피드백을 받지 못했어요.");
+  } catch (e) {
+    $("feedbackBody").textContent = "피드백 요청 중 오류가 났어요: " + e.message;
+  }
+}
+
+function cleanupAudio() {
+  stopPlayback();
+  try { micStream && micStream.getTracks().forEach((t) => t.stop()); } catch {}
+  try { micCtx && micCtx.close(); } catch {}
+  micStream = micCtx = micNode = null;
+}
+window.addEventListener("beforeunload", () => { try { ws && ws.close(); } catch {} cleanupAudio(); });
+</script>
+</body>
+</html>
