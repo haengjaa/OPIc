@@ -11,6 +11,7 @@ const routes = {
   "/api/token": require("./api/token.js"),
   "/api/feedback": require("./api/feedback.js"),
   "/api/mission": require("./api/mission.js"),
+  "/api/script": require("./api/script.js"),
 };
 const TYPES = {
   ".html": "text/html; charset=utf-8",

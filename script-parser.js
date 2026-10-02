@@ -10,7 +10,7 @@
 //      # ====                → 구분선 (무시)
 // =====================================================================
 (function (root) {
-  const ROLEPLAY_HINT = /전화편|질문|구매|묻기|Ask me|약속|^친구한테 전화|^Q\./i;
+  const ROLEPLAY_HINT = /롤플|role-?play|전화편|질문|구매|묻기|Ask me|약속|^친구한테 전화|^Q\./i;
 
   function parseScript(text) {
     const lines = String(text || "").replace(/\r/g, "").split("\n");

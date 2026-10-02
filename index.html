@@ -110,7 +110,9 @@
       touch-action: manipulation; user-select: none; -webkit-user-select: none;
     }
     .bar button.talk.rec { background: var(--danger); border-color: var(--danger); animation: recPulse 1.2s infinite; }
+    .bar button.talk.warm, .bar button.talk.warm:disabled { background: #9aa1b2; border-color: #9aa1b2; opacity: 1; }
     .bar button.talk:disabled { opacity: .45; }
+    .talkTip { font-size: 13px; color: var(--muted); text-align: center; margin-bottom: 6px; }
     @keyframes recPulse { 50% { box-shadow: 0 0 0 6px rgba(214,69,69,.25); } }
     .bar button {
       flex: 1; padding: 12px 6px; border-radius: 10px; border: 1px solid var(--line);
@@ -145,6 +147,26 @@
     .mission .fix { color: var(--muted); }
     .mission .fix s { color: var(--danger); }
     .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .lib { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+    .libItem { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+    .libTop { display: flex; align-items: center; gap: 8px; }
+    .libTop input { width: 18px; height: 18px; flex: none; }
+    .libName { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+    .libMeta { font-size: 12px; color: var(--muted); margin: 2px 0 0 26px; }
+    .badge { font-size: 11px; border-radius: 999px; padding: 1px 7px; margin-left: 4px; font-weight: 600; white-space: nowrap; }
+    .badge.default { background: #eef0f5; color: var(--muted); }
+    .badge.mine { background: #e7f6ee; color: var(--ok); }
+    .badge.ai { background: #f3eafd; color: #7b3fc4; }
+    .libBtns { display: flex; gap: 6px; flex: none; }
+    .libBtns button { border: 1px solid var(--line); background: #fff; border-radius: 7px; padding: 4px 8px; font-size: 12px; cursor: pointer; color: var(--ink); }
+    .libBtns button.del { color: var(--danger); }
+    .libItem pre {
+      white-space: pre-wrap; font-family: inherit; font-size: 13px; background: var(--bg); border-radius: 8px;
+      padding: 8px 10px; margin: 8px 0 0; max-height: 260px; overflow: auto;
+    }
+    .gen { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+    .genRow { display: flex; gap: 8px; }
+    .genRow select { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; font-size: 14px; background: #fff; color: var(--ink); }
     .tag { font-size: 12px; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 3px 9px; }
   </style>
 </head>
@@ -174,21 +196,6 @@
       <div class="hint" id="modeHint"></div>
     </div>
 
-    <div class="card" id="scriptCard">
-      <h2>내 스크립트</h2>
-      <div class="scriptInfo" id="scriptInfo">스크립트 불러오는 중…</div>
-      <label class="toggle" id="useScriptRow">
-        <input type="checkbox" id="useScript" checked />
-        스크립트에서 무작위로 주제·상황 고르기
-      </label>
-      <div class="row" style="margin-top:10px">
-        <button class="small" id="scriptUploadBtn" type="button">📄 스크립트 파일 바꾸기</button>
-        <button class="small" id="scriptResetBtn" type="button">↩ 기본 스크립트로</button>
-        <input type="file" id="scriptFile" accept=".txt,text/plain" hidden />
-      </div>
-      <div class="hint">.txt 파일을 올리면 이 휴대폰(브라우저)에 저장돼요. "▶ 주제", "[소주제]", "Q.", "DAY 1" 처럼 적으면 항목이 잘 나뉘어요.</div>
-    </div>
-
     <div class="card">
       <h2>목표 등급</h2>
       <div class="row" id="levelChips">
@@ -197,6 +204,54 @@
         <span class="chip" data-v="AL">AL</span>
       </div>
     </div>
+
+    <div class="card" id="scriptCard">
+      <h2>내 스크립트</h2>
+      <div class="scriptInfo" id="scriptInfo">스크립트 불러오는 중…</div>
+      <label class="toggle" id="useScriptRow">
+        <input type="checkbox" id="useScript" checked />
+        스크립트에서 무작위로 주제·상황 고르기
+      </label>
+
+      <!-- 스크립트 목록: 체크된 스크립트들에서 무작위로 골라 연습해요 -->
+      <div class="lib" id="scriptList"></div>
+
+      <div class="row" style="margin-top:10px">
+        <button class="small" id="scriptAddBtn" type="button">➕ 스크립트 파일 추가하기</button>
+        <input type="file" id="scriptFile" accept=".txt,text/plain" multiple hidden />
+      </div>
+      <div class="hint">.txt 파일을 추가하면 이 휴대폰(브라우저)에 저장돼요. "▶ 주제", "[소주제]", "Q.", "DAY 1" 처럼 적으면 항목이 잘 나뉘어요.</div>
+
+      <!-- AI가 학습용 스크립트 만들기 -->
+      <div class="gen">
+        <b>✨ AI 스크립트 만들기</b>
+        <div class="hint" style="margin:2px 0 8px">내 스크립트와 OPIc 문제 유형을 참고해서, 위에서 고른 <b>목표 등급</b>에 맞는 새 스크립트를 만들어 목록에 추가해요.</div>
+        <div class="genRow">
+          <select id="genTopic">
+            <option value="auto">🎯 자동 추천 (내 스크립트에 부족한 주제)</option>
+            <option value="self-introduction">자기소개</option>
+            <option value="home and neighborhood">집 · 동네</option>
+            <option value="watching movies">영화보기</option>
+            <option value="listening to music / concerts">음악 · 공연</option>
+            <option value="going to parks">공원가기</option>
+            <option value="walking and jogging">걷기 · 조깅</option>
+            <option value="going to cafes">카페가기</option>
+            <option value="shopping">쇼핑</option>
+            <option value="cooking">요리</option>
+            <option value="domestic and overseas travel">국내 · 해외여행</option>
+            <option value="staying home on vacation">집에서 보내는 휴가</option>
+            <option value="role-play: asking the interviewer 3-4 questions">롤플레이: 질문하기</option>
+            <option value="role-play: solving a problem (phone call, refund, cancelling plans)">롤플레이: 문제 해결</option>
+            <option value="unexpected topics: recycling, technology, banks, holidays, health">돌발 주제 (재활용·기술·은행·명절·건강)</option>
+            <option value="comparing past and present / changes over time">비교 · 변화 (과거 vs 현재)</option>
+          </select>
+          <button class="small" id="genBtn" type="button">✨ 만들기</button>
+        </div>
+        <div class="hint" id="genStatus"></div>
+      </div>
+    </div>
+
+
 
     <div class="card" id="topicCard">
       <h2>주제 선택 (서베이 항목, 여러 개 가능)</h2>
@@ -272,6 +327,7 @@
 
 <div class="bar" id="bar">
   <div class="talkRow" id="talkRow">
+    <div class="talkTip" id="talkTip">💡 ‘말하기’를 누르고 버튼이 빨간색 ‘보내기’로 바뀌면 말을 시작하세요.</div>
     <button id="talkBtn" class="talk">🎙 말하기</button>
   </div>
   <div class="inner">
@@ -324,60 +380,186 @@ try { $("pw").value = localStorage.getItem("opic_pw") || ""; } catch {}
 // =====================================================================
 //  내 스크립트 불러오기 / 바꾸기
 // =====================================================================
-let scriptUnits = [];
-let scriptSource = "기본 스크립트";
+let scriptUnits = [];          // 켜진 스크립트들의 항목을 모두 합친 것
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); return true; } catch { return false; } },
   del(k) { try { localStorage.removeItem(k); } catch {} },
 };
 
-function showScriptInfo() {
+// 스크립트 목록 = 기본 스크립트 + 내가 추가한 파일들 + AI가 만든 스크립트들
+//   저장 형식(opic_library): [{ id, name, kind: "mine" | "ai", text, on, date }]
+let defaultText = "";
+let library = [];
+function loadLibrary() {
+  try { library = JSON.parse(store.get("opic_library") || "[]"); } catch { library = []; }
+  // 예전 버전에서 "바꾸기"로 올린 파일이 있으면 목록으로 옮기기
+  const old = store.get("opic_script");
+  if (old) {
+    library.push({ id: "m" + Date.now(), name: store.get("opic_script_name") || "내가 올린 스크립트", kind: "mine", text: old, on: true, date: Date.now() });
+    store.del("opic_script"); store.del("opic_script_name");
+    saveLibrary();
+  }
+}
+function saveLibrary() {
+  if (!store.set("opic_library", JSON.stringify(library))) {
+    alert("휴대폰(브라우저) 저장 공간이 부족해요. 안 쓰는 스크립트를 삭제해 주세요.");
+    return false;
+  }
+  return true;
+}
+const defaultOn = () => store.get("opic_default_on") !== "0";
+
+function countUnits(units) {
   const c = { topic: 0, roleplay: 0, expr: 0 };
-  scriptUnits.forEach((u) => c[u.type]++);
-  const cats = new Set(scriptUnits.filter((u) => u.type !== "expr").map((u) => u.category)).size;
-  $("scriptInfo").textContent = scriptUnits.length
-    ? `📄 ${scriptSource} · 큰 주제 ${cats}개 · 답변 ${c.topic}개 · 롤플레이 ${c.roleplay}개 · 표현 묶음 ${c.expr}개`
-    : `⚠️ ${scriptSource}에서 내용을 찾지 못했어요. 다른 파일을 올려주세요.`;
+  units.forEach((u) => c[u.type]++);
+  return c;
 }
 
-async function loadScript() {
-  const custom = store.get("opic_script");
-  let text = "";
-  if (custom) {
-    text = custom;
-    scriptSource = store.get("opic_script_name") || "내가 올린 스크립트";
-  } else {
-    try {
-      const r = await fetch("/default-script.txt");
-      text = r.ok ? await r.text() : "";
-    } catch {}
-    scriptSource = "기본 스크립트";
-  }
-  scriptUnits = ScriptParser.parseScript(text);
-  showScriptInfo();
+// 켜진 스크립트들을 합쳐서 연습 항목 만들기
+function rebuildUnits() {
+  const texts = [];
+  if (defaultOn() && defaultText) texts.push(defaultText);
+  library.filter((x) => x.on).forEach((x) => texts.push(x.text));
+  scriptUnits = texts.flatMap((t) => ScriptParser.parseScript(t)).map((u, i) => ({ ...u, id: i }));
+  const c = countUnits(scriptUnits);
+  const n = texts.length;
+  $("scriptInfo").textContent = n
+    ? `✅ 켜진 스크립트 ${n}개 · 답변 ${c.topic}개 · 롤플레이 ${c.roleplay}개 · 표현 묶음 ${c.expr}개`
+    : "⚠️ 켜진 스크립트가 없어요. 아래 목록에서 하나 이상 체크해 주세요.";
   updateModeUI();
 }
 
-$("scriptUploadBtn").onclick = () => $("scriptFile").click();
+function renderLibrary() {
+  const items = [{ id: "default", name: "기본 스크립트", kind: "default", text: defaultText, on: defaultOn() }].concat(library);
+  const KIND = { default: "기본", mine: "내 파일", ai: "AI 생성" };
+  $("scriptList").innerHTML = items.map((x) => {
+    const c = countUnits(ScriptParser.parseScript(x.text));
+    return `
+      <div class="libItem" data-id="${esc(x.id)}">
+        <div class="libTop">
+          <input type="checkbox" class="libOn" ${x.on ? "checked" : ""} aria-label="이 스크립트로 연습하기" />
+          <span class="libName">${esc(x.name)}<span class="badge ${x.kind}">${KIND[x.kind]}</span></span>
+          <span class="libBtns">
+            <button type="button" class="libView">보기</button>
+            ${x.kind === "default" ? "" : '<button type="button" class="del">삭제</button>'}
+          </span>
+        </div>
+        <div class="libMeta">답변 ${c.topic} · 롤플레이 ${c.roleplay} · 표현 ${c.expr}${x.date ? " · " + new Date(x.date).toLocaleDateString("ko-KR") : ""}</div>
+      </div>`;
+  }).join("");
+}
+
+$("scriptList").addEventListener("click", (e) => {
+  const item = e.target.closest(".libItem");
+  if (!item) return;
+  const id = item.dataset.id;
+  const entry = id === "default" ? { text: defaultText } : library.find((x) => x.id === id);
+  if (e.target.classList.contains("libView")) {
+    const pre = item.querySelector("pre");
+    if (pre) { pre.remove(); e.target.textContent = "보기"; }
+    else {
+      const el = document.createElement("pre");
+      el.textContent = entry.text;
+      item.appendChild(el);
+      e.target.textContent = "닫기";
+    }
+  } else if (e.target.classList.contains("del")) {
+    // 실수 방지: 한 번 더 눌러야 삭제
+    if (e.target.dataset.sure !== "1") {
+      e.target.dataset.sure = "1";
+      e.target.textContent = "정말 삭제?";
+      setTimeout(() => { e.target.dataset.sure = ""; e.target.textContent = "삭제"; }, 3000);
+      return;
+    }
+    library = library.filter((x) => x.id !== id);
+    saveLibrary();
+    renderLibrary();
+    rebuildUnits();
+  }
+});
+$("scriptList").addEventListener("change", (e) => {
+  if (!e.target.classList.contains("libOn")) return;
+  const id = e.target.closest(".libItem").dataset.id;
+  if (id === "default") store.set("opic_default_on", e.target.checked ? "1" : "0");
+  else {
+    const x = library.find((y) => y.id === id);
+    if (x) { x.on = e.target.checked; saveLibrary(); }
+  }
+  rebuildUnits();
+});
+
+// 스크립트 파일 추가하기 (여러 개 한 번에 가능)
+$("scriptAddBtn").onclick = () => $("scriptFile").click();
 $("scriptFile").onchange = async (e) => {
-  const f = e.target.files[0];
-  if (!f) return;
-  if (f.size > 300 * 1024) { alert("파일이 너무 커요 (300KB 이하로 올려주세요)."); return; }
-  const text = await f.text();
-  const units = ScriptParser.parseScript(text);
-  if (!units.length) { alert("이 파일에서 영어 스크립트를 찾지 못했어요."); return; }
-  if (!store.set("opic_script", text)) { alert("저장 공간이 부족해서 저장하지 못했어요."); return; }
-  store.set("opic_script_name", f.name);
-  store.del("opic_recent");
+  const files = [...e.target.files];
   e.target.value = "";
-  await loadScript();
+  let added = 0;
+  for (const f of files) {
+    if (f.size > 300 * 1024) { alert(`${f.name}: 파일이 너무 커요 (300KB 이하).`); continue; }
+    const text = await f.text();
+    if (!ScriptParser.parseScript(text).length) { alert(`${f.name}: 영어 스크립트를 찾지 못했어요.`); continue; }
+    library.push({ id: "m" + Date.now() + "_" + added, name: f.name.replace(/\.txt$/i, ""), kind: "mine", text, on: true, date: Date.now() });
+    added++;
+  }
+  if (added && saveLibrary()) { renderLibrary(); rebuildUnits(); }
 };
-$("scriptResetBtn").onclick = async () => {
-  store.del("opic_script");
-  store.del("opic_script_name");
-  store.del("opic_recent");
-  await loadScript();
+
+async function loadScripts() {
+  loadLibrary();
+  try {
+    const r = await fetch("/default-script.txt");
+    defaultText = r.ok ? await r.text() : "";
+  } catch {}
+  renderLibrary();
+  rebuildUnits();
+}
+
+// =====================================================================
+//  ✨ AI 스크립트 만들기
+// =====================================================================
+$("genBtn").onclick = async () => {
+  const btn = $("genBtn");
+  const level = picked("levelChips")[0];
+  const sel = $("genTopic");
+  btn.disabled = true;
+  $("genStatus").textContent = `✍️ ${level} 수준으로 스크립트를 만드는 중이에요… (20~40초)`;
+  try {
+    // 지금 가진 스크립트(켜진 것)를 참고 자료로 보내기 — 주제 목록 + 일부 내용
+    // 켜진 스크립트들을 골고루 조금씩 (한 스크립트가 다 차지하지 않게)
+    const texts = (defaultOn() && defaultText ? [defaultText] : []).concat(library.filter((x) => x.on).map((x) => x.text));
+    const each = Math.floor(6000 / Math.max(1, texts.length));
+    const own = texts.map((t) => t.slice(0, each)).join("\n\n");
+    const topicsHave = [...new Set(scriptUnits.filter((u) => u.type !== "expr").map((u) => u.category))];
+    const r = await fetch("/api/script", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        password: $("pw").value,
+        level,
+        topic: sel.value,
+        topicsHave,
+        existing: own.slice(0, 6000),
+      }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) throw new Error("아래쪽 ‘앱 비밀번호’를 먼저 입력해 주세요.");
+    if (!r.ok) throw new Error(j.error || "스크립트 만들기 실패 (" + r.status + ")");
+    const units = ScriptParser.parseScript(j.script || "");
+    if (!units.length) throw new Error("만들어진 스크립트를 읽지 못했어요. 다시 시도해 주세요.");
+    const name = `AI ${level} · ${j.title || sel.options[sel.selectedIndex].text}`.slice(0, 60);
+    library.push({ id: "a" + Date.now(), name, kind: "ai", text: j.script, on: true, date: Date.now() });
+    if (saveLibrary()) {
+      renderLibrary();
+      rebuildUnits();
+      const c = countUnits(units);
+      $("genStatus").textContent = `✅ "${name}" 추가 완료! (답변 ${c.topic} · 롤플레이 ${c.roleplay} · 표현 ${c.expr}) 목록에서 '보기'로 확인하세요.`;
+    }
+  } catch (err) {
+    $("genStatus").textContent = "⚠️ " + err.message;
+  } finally {
+    btn.disabled = false;
+  }
 };
 
 // ---- 모드에 따라 화면 바꾸기 ----
@@ -397,7 +579,7 @@ function updateModeUI() {
 }
 $("modeChips").addEventListener("click", updateModeUI);
 $("useScript").addEventListener("change", updateModeUI);
-loadScript();
+loadScripts();
 
 // ---- 화면에 보여주기용: HTML 특수문자 처리 ----
 const esc = (t) => String(t || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -626,22 +808,24 @@ class Grab extends AudioWorkletProcessor {
 }
 registerProcessor("grab", Grab);`;
 
-async function startMic() {
-  micStream = await navigator.mediaDevices.getUserMedia({
-    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
-  });
+// 마이크 처리 장치는 한 번만 만들고, 마이크 자체는 필요할 때만 켜고 꺼요.
+// (말하기 버튼 방식: 녹음할 때만 마이크를 켜서, 나머지 시간엔 휴대폰 음량 버튼이 "미디어 음량"을 조절하게)
+let micSource = null;
+let micState = "off";          // off(꺼짐) / warming(켜는 중) / live(녹음 중)
+const MIC_OPTIONS = { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } };
+
+async function setupMicGraph() {
   micCtx = new AudioContext();
   const url = URL.createObjectURL(new Blob([WORKLET], { type: "text/javascript" }));
   await micCtx.audioWorklet.addModule(url);
-  const src = micCtx.createMediaStreamSource(micStream);
   micNode = new AudioWorkletNode(micCtx, "grab");
-  src.connect(micNode);
-
   const ratio = micCtx.sampleRate / 16000;
+
   micNode.port.onmessage = (e) => {
-    if (!ready || ended) return;
+    if (!ready || ended || !micStream) return;
     const ptt = settings.turnMode === "ptt";
-    if (ptt && !recording) return;             // 말하기 버튼 방식: 녹음 중일 때만 보내기
+    if (ptt && micState === "warming") onMicLive();   // 마이크 소리가 실제로 들어오기 시작한 순간
+    if (ptt && micState !== "live") return;           // 말하기 버튼 방식: 녹음 중일 때만 보내기
     const input = e.data;
     // 16kHz로 줄이기 (구간 평균)
     const outLen = Math.floor(input.length / ratio);
@@ -661,6 +845,27 @@ async function startMic() {
   };
 }
 
+// 마이크 켜기 / 끄기
+async function openMic() {
+  micStream = await navigator.mediaDevices.getUserMedia(MIC_OPTIONS);
+  micSource = micCtx.createMediaStreamSource(micStream);
+  micSource.connect(micNode);
+  await micCtx.resume();
+}
+function closeMic() {
+  try { micSource && micSource.disconnect(); } catch {}
+  try { micStream && micStream.getTracks().forEach((t) => t.stop()); } catch {}
+  micSource = null;
+  micStream = null;
+}
+
+// 대화 시작 때: 마이크 권한을 미리 받아두기
+async function startMic() {
+  await setupMicGraph();
+  await openMic();                                  // 여기서 "마이크 허용" 창이 떠요
+  if (settings.turnMode === "ptt") closeMic();      // 말하기 버튼 방식은 바로 다시 끄기
+}
+
 // 모아둔 마이크 소리 보내기
 let pending = [];
 let pendingLen = 0;
@@ -678,41 +883,104 @@ function flushAudio() {
 
 // =====================================================================
 //  🎙 말하기 / 📤 보내기 버튼 (말하기 버튼 방식)
-//  - 말하기: 녹음 시작 (AI가 말하던 중이면 멈춤)
-//  - 보내기: 녹음 끝 → 이때 AI가 대답해요. 중간에 오래 생각해도 끊기지 않아요.
+//  ① 말하기 누름 → 회색 "⏳ 마이크 켜는 중… 잠시만요"
+//  ② 마이크 소리가 실제로 들어오면 → 빨간 "📤 보내기 · 지금 말하세요"
+//  ③ 보내기 누름 → 마이크 끄고 AI가 대답 (중간에 오래 생각해도 끊기지 않아요)
 // =====================================================================
-let recording = false;
+let recording = false;   // warming 또는 live 상태
 let pttBubble = null;    // 말하기 버튼으로 보낸 답변 말풍선 (글자 변환이 늦게 와도 제자리에 채우기)
-function startRecording() {
+let warmTimer = null;
+
+function setTalkButton(state) {
+  const btn = $("talkBtn");
+  btn.classList.remove("rec", "warm");
+  btn.disabled = false;
+  if (state === "warming") {
+    btn.textContent = "⏳ 마이크 켜는 중… 잠시만요";
+    btn.classList.add("warm");
+    btn.disabled = true;                          // 켜는 중에 또 눌러도 무시
+  } else if (state === "live") {
+    btn.textContent = "📤 보내기 · 지금 말하세요";
+    btn.classList.add("rec");
+  } else {
+    btn.textContent = "🎙 말하기";
+  }
+}
+
+async function startRecording() {
   if (!ready || ended || recording) return;
   stopPlayback();                               // AI 말 멈추기
   pending = []; pendingLen = 0;
   recording = true;
+  micState = "warming";
+  setTalkButton("warming");
+  setStatus("마이크를 켜고 있어요… 버튼이 빨간색이 되면 말하세요", "");
+  try {
+    await openMic();
+    // 켜는 동안 다른 버튼(다음 질문 등)으로 취소됐으면 바로 다시 끄기
+    if (micState !== "warming") { closeMic(); return; }
+  } catch (err) {
+    console.error(err);
+    micState = "off";
+    recording = false;
+    setTalkButton("off");
+    setStatus("마이크를 켜지 못했어요: " + (err.name === "NotAllowedError" ? "마이크 권한을 허용해주세요" : err.message), "");
+    return;
+  }
+  // 혹시 소리 신호가 늦게 오면 1.5초 뒤엔 그냥 녹음 상태로
+  clearTimeout(warmTimer);
+  warmTimer = setTimeout(() => { if (micState === "warming") onMicLive(); }, 1500);
+}
+
+// 마이크가 실제로 켜진 순간
+function onMicLive() {
+  if (micState !== "warming") return;
+  clearTimeout(warmTimer);
+  micState = "live";
   send({ realtimeInput: { activityStart: {} } });
   curUser = null;                               // 새 답변 말풍선
   pttBubble = null;
   userSpeaking = true;
   startAnswerTimer();
-  $("talkBtn").textContent = "📤 보내기";
-  $("talkBtn").classList.add("rec");
-  setStatus("녹음 중… 다 말하면 ‘보내기’를 누르세요", "talk");
+  setTalkButton("live");
+  setStatus("🔴 녹음 중이에요. 다 말하면 ‘보내기’를 누르세요", "talk");
 }
+
 function stopRecording() {
-  if (!recording) return;
+  if (!recording || micState !== "live") return;
   recording = false;
+  micState = "off";
   flushAudio();
   send({ realtimeInput: { activityEnd: {} } });
+  closeMic();                                   // 마이크 끄기 → 음량 버튼이 다시 미디어 음량
   // 대답보다 먼저 내 말풍선 자리를 만들어 두기 (순서가 섞이지 않게)
   pttBubble = curUser || newBubble("user");
   if (!pttBubble.text) pttBubble.el.querySelector(".t").textContent = "(내 말을 글자로 바꾸는 중…)";
   curUser = null;
   userSpeaking = false;
   stopAnswerTimer();
-  $("talkBtn").textContent = "🎙 말하기";
-  $("talkBtn").classList.remove("rec");
+  setTalkButton("off");
   setStatus("보냈어요. 대답을 기다리는 중…", "ai");
+  // 첫 안내 문구는 한 번 보낸 뒤 숨기기
+  $("talkTip").style.display = "none";
+  try { localStorage.setItem("opic_ptt_tip_done", "1"); } catch {}
 }
-$("talkBtn").onclick = () => (recording ? stopRecording() : startRecording());
+
+// 녹음을 보내지 않고 취소 (다음/다시 버튼을 녹음 중에 누른 경우)
+function cancelRecording() {
+  if (!recording) return;
+  clearTimeout(warmTimer);
+  if (micState === "live") send({ realtimeInput: { activityEnd: {} } });
+  recording = false;
+  micState = "off";
+  pending = []; pendingLen = 0;
+  closeMic();
+  userSpeaking = false;
+  stopAnswerTimer();
+  setTalkButton("off");
+}
+
+$("talkBtn").onclick = () => (micState === "live" ? stopRecording() : startRecording());
 
 function send(obj) {
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
@@ -721,7 +989,7 @@ function send(obj) {
 function appSignal(text) {
   if (settings.turnMode === "ptt") {
     // 말하기 버튼 방식에서는 "말 시작/끝" 신호로 감싸야 AI가 대답해요
-    if (recording) { recording = false; $("talkBtn").textContent = "🎙 말하기"; $("talkBtn").classList.remove("rec"); stopAnswerTimer(); }
+    cancelRecording();
     send({ realtimeInput: { activityStart: {} } });
     send({ realtimeInput: { text: "[APP] " + text } });
     send({ realtimeInput: { activityEnd: {} } });
@@ -919,6 +1187,9 @@ $("startBtn").onclick = async () => {
     rememberRecent(pendingRecent);
     $("nextBtn").textContent = mode === "gina" ? "⏭ 다음 단계" : "⏭ 다음 질문";
     $("talkRow").classList.toggle("show", settings.turnMode === "ptt");
+    let tipDone = false;
+    try { tipDone = localStorage.getItem("opic_ptt_tip_done") === "1"; } catch {}
+    $("talkTip").style.display = tipDone ? "none" : "block";
     $("bar").style.display = "block";
   } catch (err) {
     console.error(err);
@@ -987,9 +1258,12 @@ async function endAndFeedback(note) {
 
 function cleanupAudio() {
   stopPlayback();
-  try { micStream && micStream.getTracks().forEach((t) => t.stop()); } catch {}
+  clearTimeout(warmTimer);
+  closeMic();
+  recording = false;
+  micState = "off";
   try { micCtx && micCtx.close(); } catch {}
-  micStream = micCtx = micNode = null;
+  micCtx = micNode = null;
 }
 window.addEventListener("beforeunload", () => { try { ws && ws.close(); } catch {} cleanupAudio(); });
 
