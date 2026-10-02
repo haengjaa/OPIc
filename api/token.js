@@ -89,7 +89,9 @@ module.exports = async function handler(req, res) {
       res.status(e.status).json({ error: "Gemini 연결 준비 오류: " + e.message });
       return;
     }
-    res.status(200).json({ token: data.name, model });
+    // 브라우저도 똑같은 설정으로 연결하도록 설정 내용을 같이 돌려줘요
+    // (특히 '말하기 버튼' 방식의 자동 감지 끄기 설정이 확실히 적용되게)
+    res.status(200).json({ token: data.name, model, setup: tokenRequest.bidiGenerateContentSetup });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "임시 열쇠를 받는 중 오류가 났어요." });
